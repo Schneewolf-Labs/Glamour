@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.ipynb_checkpoints/
+
+# Node / headless browser
+node_modules/
+.playwright/
+playwright-report/
+
+# Generated data + artifacts
+data/
+output/
+renders/
+*.png
+*.jpg
+*.webp
+*.parquet
+*.arrow
+
+# Local / env
+.env
+.DS_Store
+*.log
