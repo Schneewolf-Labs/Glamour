@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Glamour Arena</title>
+<style>
+:root {
+  --bg:        #0c0c11;
+  --panel:     #12121a;
+  --surface:   #1a1a27;
+  --border:    #22223a;
+  --accent:    #818cf8;
+  --accent-hi: #a5b4fc;
+  --accent-lo: #4f46e5;
+  --text:      #e2e8f0;
+  --muted:     #64748b;
+  --error:     #f87171;
+  --bar-h:     116px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  overflow: hidden;
+}
+
+body {
+  display: grid;
+  grid-template-rows: 44px 1fr var(--bar-h);
+}
+
+/* ── Header ──────────────────────────────────────────────── */
+header {
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 10px;
+  user-select: none;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.logo-mark {
+  width: 22px;
+  height: 22px;
+  background: linear-gradient(135deg, var(--accent-lo), var(--accent-hi));
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+}
+
+.logo-name {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.logo-tag {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+/* ── Arena ───────────────────────────────────────────────── */
+#arena {
+  display: grid;
+  grid-template-columns: 1fr 1px 1fr;
+  min-height: 0;
+}
+
+.divider {
+  background: var(--border);
+}
+
+/* ── Panel ───────────────────────────────────────────────── */
+.panel {
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  min-height: 0;
+}
+
+.panel-header {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  z-index: 20;
+  flex-shrink: 0;
+}
+
+.panel-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* ── Model Picker ─────────────────────────────────────────── */
+.picker {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.picker-input {
+  width: 100%;
+  padding: 6px 10px;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+  cursor: pointer;
+}
+
+.picker-input:focus {
+  border-color: var(--accent);
+  cursor: text;
+}
+
+.picker-input::placeholder {
+  color: var(--muted);
+}
+
+.picker-drop {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  max-height: 280px;
+  overflow-y: auto;
+  z-index: 100;
+  display: none;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+}
+
+.picker-drop.open {
+  display: block;
+}
+
+.picker-drop::-webkit-scrollbar { width: 4px; }
+.picker-drop::-webkit-scrollbar-track { background: transparent; }
+.picker-drop::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.picker-option {
+  padding: 7px 12px;
+  cursor: pointer;
+  color: var(--muted);
+  transition: background 0.1s, color 0.1s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 12px;
+}
+
+.picker-option:hover {
+  background: rgba(129, 140, 248, 0.08);
+  color: var(--text);
+}
+
+.picker-option.is-selected {
+  color: var(--accent);
+  background: rgba(129, 140, 248, 0.06);
+}
+
+.picker-empty {
+  padding: 12px;
+  color: var(--muted);
+  text-align: center;
+  font-size: 12px;
+}
+
+/* ── Iframe area ─────────────────────────────────────────── */
+.iframe-wrap {
+  flex: 1;
+  position: relative;
+  min-height: 0;
+  background: #fff;
+}
+
+iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+  transition: opacity 0.2s;
+}
+
+.panel-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.panel-empty .empty-icon {
+  font-size: 36px;
+  opacity: 0.3;
+}
+
+.panel-empty .empty-text {
+  font-size: 12px;
+  opacity: 0.5;
+}
+
+/* ── Loading overlay ─────────────────────────────────────── */
+.loading-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(12, 12, 17, 0.82);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  backdrop-filter: blur(3px);
+  z-index: 10;
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.75s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.loading-model {
+  font-size: 11px;
+  color: var(--muted);
+  max-width: 200px;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Error state ─────────────────────────────────────────── */
+.error-overlay {
+  position: absolute;
+  inset: 0;
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 32px;
+  text-align: center;
+  z-index: 10;
+}
+
+.error-icon { font-size: 28px; opacity: 0.6; }
+.error-msg { color: var(--error); font-size: 12px; line-height: 1.6; }
+
+/* ── Prompt bar ──────────────────────────────────────────── */
+#prompt-bar {
+  background: var(--panel);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  padding: 10px 14px;
+}
+
+#prompt-input {
+  flex: 1;
+  resize: none;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-family: inherit;
+  line-height: 1.5;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+#prompt-input:focus {
+  border-color: var(--accent);
+}
+
+#prompt-input::placeholder {
+  color: var(--muted);
+}
+
+.bar-actions {
+  display: flex;
+  flex-direction: column;
+  justify-content: stretch;
+  gap: 6px;
+}
+
+button {
+  padding: 0 18px;
+  height: 38px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  background: var(--surface);
+  color: var(--text);
+  transition: border-color 0.15s, background 0.15s, opacity 0.15s;
+  white-space: nowrap;
+}
+
+button:hover {
+  background: var(--border);
+}
+
+button.primary {
+  background: var(--accent-lo);
+  border-color: var(--accent-lo);
+  color: #fff;
+}
+
+button.primary:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ── Utility ─────────────────────────────────────────────── */
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-mark">✦</div>
+    <span class="logo-name">Glamour</span>
+    <span class="logo-tag">Design Arena</span>
+  </div>
+</header>
+
+<main id="arena">
+
+  <!-- Left panel -->
+  <div class="panel" id="panel-a">
+    <div class="panel-header">
+      <span class="panel-label">A</span>
+      <div class="picker" id="picker-a">
+        <input class="picker-input" id="input-a" placeholder="Search models…" autocomplete="off" spellcheck="false">
+        <div class="picker-drop" id="drop-a"></div>
+      </div>
+    </div>
+    <div class="iframe-wrap" id="wrap-a">
+      <div class="panel-empty" id="empty-a">
+        <div class="empty-icon">◈</div>
+        <div class="empty-text">Generate a design to see it here</div>
+      </div>
+      <div class="loading-overlay" id="loading-a" hidden>
+        <div class="spinner"></div>
+        <div class="loading-model" id="loading-model-a"></div>
+      </div>
+      <div class="error-overlay" id="error-a" hidden>
+        <div class="error-icon">⚠</div>
+        <div class="error-msg" id="error-msg-a"></div>
+      </div>
+      <iframe id="frame-a" sandbox="allow-scripts" hidden></iframe>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Right panel -->
+  <div class="panel" id="panel-b">
+    <div class="panel-header">
+      <span class="panel-label">B</span>
+      <div class="picker" id="picker-b">
+        <input class="picker-input" id="input-b" placeholder="Search models…" autocomplete="off" spellcheck="false">
+        <div class="picker-drop" id="drop-b"></div>
+      </div>
+    </div>
+    <div class="iframe-wrap" id="wrap-b">
+      <div class="panel-empty" id="empty-b">
+        <div class="empty-icon">◈</div>
+        <div class="empty-text">Generate a design to see it here</div>
+      </div>
+      <div class="loading-overlay" id="loading-b" hidden>
+        <div class="spinner"></div>
+        <div class="loading-model" id="loading-model-b"></div>
+      </div>
+      <div class="error-overlay" id="error-b" hidden>
+        <div class="error-icon">⚠</div>
+        <div class="error-msg" id="error-msg-b"></div>
+      </div>
+      <iframe id="frame-b" sandbox="allow-scripts" hidden></iframe>
+    </div>
+  </div>
+
+</main>
+
+<footer id="prompt-bar">
+  <textarea id="prompt-input" placeholder="Describe the page you want both models to design…" rows="3"></textarea>
+  <div class="bar-actions">
+    <button id="btn-gen-prompt">✦ Generate Prompt</button>
+    <button id="btn-generate" class="primary">Generate →</button>
+  </div>
+</footer>
+
+<script>
+"use strict";
+
+// ── State ──────────────────────────────────────────────────────────────────
+let allModels = [];
+const state = {
+  a: { model: null },
+  b: { model: null },
+};
+
+// ── Model picker ───────────────────────────────────────────────────────────
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function initPicker(side) {
+  const input = document.getElementById(`input-${side}`);
+  const drop  = document.getElementById(`drop-${side}`);
+  const picker = document.getElementById(`picker-${side}`);
+
+  function openDrop() {
+    renderOptions(side, input.value);
+    drop.classList.add("open");
+  }
+
+  function closeDrop() {
+    drop.classList.remove("open");
+    // Restore display to selected model id
+    if (state[side].model) input.value = state[side].model.id;
+    else input.value = "";
+  }
+
+  input.addEventListener("focus", openDrop);
+
+  input.addEventListener("input", () => {
+    renderOptions(side, input.value);
+    drop.classList.add("open");
+  });
+
+  input.addEventListener("blur", () => {
+    // Delay so mousedown on an option fires first
+    setTimeout(closeDrop, 160);
+  });
+
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") { closeDrop(); input.blur(); }
+  });
+
+  // Close when clicking outside
+  document.addEventListener("click", (e) => {
+    if (!picker.contains(e.target)) drop.classList.remove("open");
+  });
+}
+
+function renderOptions(side, query) {
+  const drop = document.getElementById(`drop-${side}`);
+  const q = (query || "").toLowerCase().trim();
+  const filtered = q
+    ? allModels.filter(m =>
+        m.id.toLowerCase().includes(q) ||
+        m.name.toLowerCase().includes(q))
+    : allModels;
+
+  const shown = filtered.slice(0, 120);
+
+  if (shown.length === 0) {
+    drop.innerHTML = `<div class="picker-empty">No models match "${escHtml(query)}"</div>`;
+    return;
+  }
+
+  const cur = state[side].model?.id;
+  drop.innerHTML = shown.map(m => {
+    const sel = m.id === cur ? " is-selected" : "";
+    return `<div class="picker-option${sel}" data-id="${escHtml(m.id)}" title="${escHtml(m.id)}">${escHtml(m.name)}</div>`;
+  }).join("");
+
+  drop.querySelectorAll(".picker-option").forEach(el => {
+    // mousedown (not click) so it fires before the input's blur
+    el.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      selectModel(side, el.dataset.id);
+      drop.classList.remove("open");
+    });
+  });
+}
+
+function selectModel(side, id) {
+  const m = allModels.find(m => m.id === id);
+  if (!m) return;
+  state[side].model = m;
+  document.getElementById(`input-${side}`).value = m.id;
+}
+
+// ── Load models ────────────────────────────────────────────────────────────
+async function loadModels() {
+  ["a", "b"].forEach(s => {
+    document.getElementById(`input-${s}`).value = "Loading models…";
+    document.getElementById(`input-${s}`).disabled = true;
+  });
+
+  try {
+    const resp = await fetch("/api/models");
+    allModels = await resp.json();
+    if (allModels.error) throw new Error(allModels.error);
+  } catch (e) {
+    allModels = [];
+    console.error("Failed to load models:", e);
+  }
+
+  ["a", "b"].forEach(s => {
+    const input = document.getElementById(`input-${s}`);
+    input.disabled = false;
+    input.value = "";
+    input.placeholder = "Search models…";
+  });
+
+  // Default selections
+  const DEFAULTS = [
+    "anthropic/claude-sonnet-4-5",
+    "google/gemini-2.5-flash",
+  ];
+  DEFAULTS.forEach((id, i) => {
+    const side = i === 0 ? "a" : "b";
+    const m = allModels.find(m => m.id === id) || allModels[i] || null;
+    if (m) selectModel(side, m.id);
+  });
+}
+
+// ── Generate prompt ────────────────────────────────────────────────────────
+async function generatePrompt() {
+  const btn = document.getElementById("btn-gen-prompt");
+  btn.disabled = true;
+  btn.textContent = "Generating…";
+  try {
+    const resp = await fetch("/api/generate-prompt", { method: "POST" });
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    document.getElementById("prompt-input").value = data.prompt;
+  } catch (e) {
+    alert("Could not generate prompt: " + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "✦ Generate Prompt";
+  }
+}
+
+// ── Generate designs ───────────────────────────────────────────────────────
+async function generateBoth() {
+  const prompt = document.getElementById("prompt-input").value.trim();
+  if (!prompt) { alert("Enter a prompt first."); return; }
+
+  const missingModel = ["a","b"].find(s => !state[s].model);
+  if (missingModel) {
+    alert(`Select a model for panel ${missingModel.toUpperCase()} first.`);
+    return;
+  }
+
+  const btn = document.getElementById("btn-generate");
+  btn.disabled = true;
+
+  await Promise.all(["a", "b"].map(side => generateOne(side, prompt)));
+
+  btn.disabled = false;
+}
+
+async function generateOne(side, prompt) {
+  const model = state[side].model;
+  setLoading(side, true, model.id);
+  clearResult(side);
+
+  try {
+    const resp = await fetch("/api/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: model.id, prompt }),
+    });
+    const data = await resp.json();
+    if (!resp.ok || data.error) throw new Error(data.error || `HTTP ${resp.status}`);
+    renderResult(side, data);
+  } catch (e) {
+    showError(side, e.message);
+  } finally {
+    setLoading(side, false);
+  }
+}
+
+function buildPage(html, css, js) {
+  // Escape closing script tags inside JS to prevent early close
+  const safeJs = (js || "").replace(/<\/script>/gi, "<\\/script>");
+  return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>${css || ""}</style>
+</head>
+<body>
+${html || ""}
+${js ? `<script>${safeJs}<\/script>` : ""}
+</body>
+</html>`;
+}
+
+function renderResult(side, { html, css, js }) {
+  const frame = document.getElementById(`frame-${side}`);
+  document.getElementById(`empty-${side}`).hidden = true;
+  document.getElementById(`error-${side}`).hidden = true;
+  frame.hidden = false;
+  frame.srcdoc = buildPage(html, css, js);
+}
+
+// ── UI state helpers ───────────────────────────────────────────────────────
+function setLoading(side, on, modelId) {
+  document.getElementById(`loading-${side}`).hidden = !on;
+  if (on && modelId) {
+    document.getElementById(`loading-model-${side}`).textContent = modelId;
+  }
+  const frame = document.getElementById(`frame-${side}`);
+  if (!frame.hidden) frame.style.opacity = on ? "0.25" : "1";
+}
+
+function clearResult(side) {
+  document.getElementById(`error-${side}`).hidden = true;
+}
+
+function showError(side, msg) {
+  document.getElementById(`frame-${side}`).hidden = true;
+  document.getElementById(`empty-${side}`).hidden = true;
+  const err = document.getElementById(`error-${side}`);
+  err.hidden = false;
+  document.getElementById(`error-msg-${side}`).textContent = msg;
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+document.addEventListener("DOMContentLoaded", () => {
+  initPicker("a");
+  initPicker("b");
+
+  document.getElementById("btn-gen-prompt")
+    .addEventListener("click", generatePrompt);
+  document.getElementById("btn-generate")
+    .addEventListener("click", generateBoth);
+
+  // Cmd/Ctrl+Enter to generate from textarea
+  document.getElementById("prompt-input").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      generateBoth();
+    }
+  });
+
+  loadModels();
+});
+</script>
+</body>
+</html>

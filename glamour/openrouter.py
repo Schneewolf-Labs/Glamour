@@ -31,11 +31,27 @@ import base64
 import json
 import mimetypes
 import os
+import pathlib
 import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
 from typing import Any, Iterable, Iterator
+
+def _load_dotenv():
+    """Load a .env file from the repo root (two levels up from this file) if present."""
+    env_path = pathlib.Path(__file__).parent.parent / ".env"
+    if not env_path.exists():
+        return
+    with open(env_path) as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, val = line.partition("=")
+            os.environ.setdefault(key.strip(), val.strip())
+
+_load_dotenv()
 
 DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
 DEFAULT_MODEL = "anthropic/claude-sonnet-4.6"
