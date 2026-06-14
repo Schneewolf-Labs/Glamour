@@ -105,9 +105,32 @@ A judging arena that produces preference data and keeps humans in the loop:
 
 ## Status
 
-**Seed / greenfield.** Next concrete step is a proof-of-concept synthesis
-pipeline: take a few clean components → inject a contrast + an alignment defect
-→ render with Playwright → emit the example schema above, to eyeball whether the
-generated critiques are good before committing to a full corpus builder. The
-data build is CPU/headless-browser work (no GPU), so it can run alongside other
+**Early — the synthesis engine works end-to-end.** Built so far:
+
+- `glamour/synth_poc.py` — the PoC: clean component → inject contrast/alignment
+  defect → Playwright render → DOM-measured severity → grounded critique.
+- `glamour/build.py` + `render.py` — corpus builder: 3 components × the defect
+  taxonomy (contrast, alignment, type-hierarchy, spacing) × severity variants,
+  with **closed-loop verification** (re-measure clean + pixel-diff broken-vs-clean
+  → confirms the reward signal separates broken from clean).
+- `glamour/openrouter.py` — multimodal LLM client (prompt-gen / competitors /
+  vision judge) for the arena and critique synthesis.
+- `glamour/critique.py` — **grounded critique synthesis**: rewrites the
+  templated critiques in a natural designer voice via a VLM, *anchored* to the
+  measured ground-truth (the model is told the defect + numbers, not asked to
+  find them) with a measured-number guard + template fallback. Runs as a
+  decoupled post-pass over the corpus; tested in `tests/`.
+
+The data build is CPU/headless-browser work (no GPU), so it runs alongside
 training jobs.
+
+**Next concrete steps:**
+1. **SFT export** — turn `corpus.enriched.jsonl` into Merlina-ready chat traces
+   (system + screenshot user turn + grounded critique/fix assistant turn, with
+   bbox grounding and a leakage-safe train/val split).
+2. **Expand the taxonomy** — style inconsistency (radii/button drift), overflow/
+   clipping, responsive breakage (render at a width that breaks layout).
+3. **Closed-loop fix agent** — apply the agent's CSS edit, re-render, score
+   against the clean baseline (the reward `render.pixel_diff` already provides).
+4. **The arena** — blind model competition + judging over the OpenRouter client,
+   emitting preference pairs.

@@ -1,4 +1,5 @@
 """Glamour — web-design critique arena + synthetic-data engine."""
+from .critique import enrich_file, enrich_record, is_grounded
 from .openrouter import (
     ChatResponse,
     OpenRouter,
@@ -17,4 +18,7 @@ __all__ = [
     "system_message",
     "text_part",
     "image_part",
+    "enrich_record",
+    "enrich_file",
+    "is_grounded",
 ]
