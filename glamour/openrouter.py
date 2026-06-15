@@ -28,6 +28,7 @@ The key is read from $OPENROUTER_API_KEY by default.
 from __future__ import annotations
 
 import base64
+import http.client
 import json
 import mimetypes
 import os
@@ -282,8 +283,24 @@ class OpenRouter:
         raise last_err or OpenRouterError("request failed")
 
     def _request(self, payload: dict) -> ChatResponse:
-        with self._open(payload) as resp:
-            body = json.loads(resp.read().decode("utf-8"))
+        # Reading the body can fail mid-stream (connection reset, incomplete
+        # read) even after a clean connect, so retry the open+read together.
+        last_err: Exception | None = None
+        raw: str | None = None
+        for attempt in range(self.max_retries + 1):
+            try:
+                with self._open(payload) as resp:
+                    raw = resp.read().decode("utf-8")
+                break
+            except (OSError, http.client.HTTPException) as e:
+                last_err = OpenRouterError(f"transport error during read: {e}")
+                if attempt < self.max_retries:
+                    time.sleep(_backoff(attempt))
+                    continue
+                raise last_err from e
+        if raw is None:
+            raise last_err or OpenRouterError("request failed")
+        body = json.loads(raw)
         # OpenRouter can return a top-level error object even on HTTP 200.
         if isinstance(body.get("error"), dict):
             err = body["error"]

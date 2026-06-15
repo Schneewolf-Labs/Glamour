@@ -16,6 +16,7 @@
   --text:      #e2e8f0;
   --muted:     #64748b;
   --error:     #f87171;
+  --win:       #34d399;
   --bar-h:     116px;
 }
 
@@ -78,6 +79,23 @@ header {
   font-weight: 400;
 }
 
+.header-link {
+  margin-left: auto;
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.header-link:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
 /* ── Arena ───────────────────────────────────────────────── */
 #arena {
   display: grid;
@@ -116,6 +134,16 @@ header {
   color: var(--muted);
   white-space: nowrap;
 }
+
+.panel-meta {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.panel-meta.is-truncated { color: var(--error); }
 
 /* ── Model Picker ─────────────────────────────────────────── */
 .picker {
@@ -271,6 +299,12 @@ iframe {
   white-space: nowrap;
 }
 
+.loading-timer {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+}
+
 /* ── Error state ─────────────────────────────────────────── */
 .error-overlay {
   position: absolute;
@@ -288,6 +322,43 @@ iframe {
 
 .error-icon { font-size: 28px; opacity: 0.6; }
 .error-msg { color: var(--error); font-size: 12px; line-height: 1.6; }
+
+/* ── Truncation (hit token limit) ────────────────────────── */
+.iframe-wrap.is-truncated {
+  box-shadow: inset 0 0 0 2px var(--error);
+}
+
+.truncate-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  background: rgba(248, 113, 113, 0.95);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.continue-btn {
+  height: auto;
+  padding: 5px 12px;
+  background: #fff;
+  color: #b91c1c;
+  border: none;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.continue-btn:hover { background: #fee2e2; }
+.continue-btn:disabled { opacity: 0.6; }
 
 /* ── Prompt bar ──────────────────────────────────────────── */
 #prompt-bar {
@@ -364,6 +435,47 @@ button:disabled {
   cursor: not-allowed;
 }
 
+/* ── Vote bar ────────────────────────────────────────────── */
+.panel-vote {
+  flex-shrink: 0;
+  padding: 8px;
+  border-top: 1px solid var(--border);
+  display: flex;
+}
+
+.vote-btn {
+  flex: 1;
+  height: 34px;
+  padding: 0 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.vote-btn:hover:not(:disabled) {
+  border-color: var(--win);
+  color: var(--win);
+}
+
+.vote-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.vote-btn.is-winner {
+  background: var(--win);
+  border-color: var(--win);
+  color: #04120b;
+  opacity: 1;
+}
+
+.vote-btn.is-loser {
+  opacity: 0.4;
+}
+
 /* ── Utility ─────────────────────────────────────────────── */
 [hidden] { display: none !important; }
 </style>
@@ -376,6 +488,7 @@ button:disabled {
     <span class="logo-name">Glamour</span>
     <span class="logo-tag">Design Arena</span>
   </div>
+  <a class="header-link" href="/history">History →</a>
 </header>
 
 <main id="arena">
@@ -388,6 +501,7 @@ button:disabled {
         <input class="picker-input" id="input-a" placeholder="Search models…" autocomplete="off" spellcheck="false">
         <div class="picker-drop" id="drop-a"></div>
       </div>
+      <span class="panel-meta" id="meta-a"></span>
     </div>
     <div class="iframe-wrap" id="wrap-a">
       <div class="panel-empty" id="empty-a">
@@ -397,12 +511,20 @@ button:disabled {
       <div class="loading-overlay" id="loading-a" hidden>
         <div class="spinner"></div>
         <div class="loading-model" id="loading-model-a"></div>
+        <div class="loading-timer" id="loading-timer-a">0.0s</div>
       </div>
       <div class="error-overlay" id="error-a" hidden>
         <div class="error-icon">⚠</div>
         <div class="error-msg" id="error-msg-a"></div>
       </div>
+      <div class="truncate-bar" id="trunc-a" hidden>
+        <span>⚠ Hit token limit — design is cut off</span>
+        <button class="continue-btn" id="continue-a">Continue +2k →</button>
+      </div>
       <iframe id="frame-a" sandbox="allow-scripts" hidden></iframe>
+    </div>
+    <div class="panel-vote">
+      <button class="vote-btn" id="vote-a" disabled>▲ This one's better</button>
     </div>
   </div>
 
@@ -416,6 +538,7 @@ button:disabled {
         <input class="picker-input" id="input-b" placeholder="Search models…" autocomplete="off" spellcheck="false">
         <div class="picker-drop" id="drop-b"></div>
       </div>
+      <span class="panel-meta" id="meta-b"></span>
     </div>
     <div class="iframe-wrap" id="wrap-b">
       <div class="panel-empty" id="empty-b">
@@ -425,12 +548,20 @@ button:disabled {
       <div class="loading-overlay" id="loading-b" hidden>
         <div class="spinner"></div>
         <div class="loading-model" id="loading-model-b"></div>
+        <div class="loading-timer" id="loading-timer-b">0.0s</div>
       </div>
       <div class="error-overlay" id="error-b" hidden>
         <div class="error-icon">⚠</div>
         <div class="error-msg" id="error-msg-b"></div>
       </div>
+      <div class="truncate-bar" id="trunc-b" hidden>
+        <span>⚠ Hit token limit — design is cut off</span>
+        <button class="continue-btn" id="continue-b">Continue +2k →</button>
+      </div>
       <iframe id="frame-b" sandbox="allow-scripts" hidden></iframe>
+    </div>
+    <div class="panel-vote">
+      <button class="vote-btn" id="vote-b" disabled>▲ This one's better</button>
     </div>
   </div>
 
@@ -447,12 +578,26 @@ button:disabled {
 <script>
 "use strict";
 
+// Parse a response as JSON, but surface a readable error if the server returned
+// an HTML error page (e.g. a 500) instead of JSON.
+async function parseJson(resp) {
+  const text = await resp.text();
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    const snippet = text.trim().slice(0, 120).replace(/\s+/g, " ");
+    throw new Error(`Server error (HTTP ${resp.status}): ${snippet || "non-JSON response"}`);
+  }
+}
+
 // ── State ──────────────────────────────────────────────────────────────────
 let allModels = [];
 const state = {
-  a: { model: null },
-  b: { model: null },
+  a: { model: null, raw: "", prompt: "", batch: "", id: "" },
+  b: { model: null, raw: "", prompt: "", batch: "", id: "" },
 };
+const timers = { a: null, b: null };
+let voted = false;
 
 // ── Model picker ───────────────────────────────────────────────────────────
 function escHtml(s) {
@@ -550,7 +695,7 @@ async function loadModels() {
 
   try {
     const resp = await fetch("/api/models");
-    allModels = await resp.json();
+    allModels = await parseJson(resp);
     if (allModels.error) throw new Error(allModels.error);
   } catch (e) {
     allModels = [];
@@ -566,7 +711,7 @@ async function loadModels() {
 
   // Default selections
   const DEFAULTS = [
-    "anthropic/claude-sonnet-4-5",
+    "~anthropic/claude-opus-latest",
     "google/gemini-2.5-flash",
   ];
   DEFAULTS.forEach((id, i) => {
@@ -583,7 +728,7 @@ async function generatePrompt() {
   btn.textContent = "Generating…";
   try {
     const resp = await fetch("/api/generate-prompt", { method: "POST" });
-    const data = await resp.json();
+    const data = await parseJson(resp);
     if (data.error) throw new Error(data.error);
     document.getElementById("prompt-input").value = data.prompt;
   } catch (e) {
@@ -608,30 +753,122 @@ async function generateBoth() {
   const btn = document.getElementById("btn-generate");
   btn.disabled = true;
 
+  // One batch id ties the A/B pair together in history.
+  const batch = (Date.now().toString(36) + Math.random().toString(36).slice(2, 6));
+  state.a.batch = state.b.batch = batch;
+  resetVotes();
+
   await Promise.all(["a", "b"].map(side => generateOne(side, prompt)));
 
   btn.disabled = false;
 }
 
-async function generateOne(side, prompt) {
+async function generateOne(side, prompt, partial = "") {
   const model = state[side].model;
+  state[side].prompt = prompt;
   setLoading(side, true, model.id);
   clearResult(side);
+  setTruncated(side, false);
 
   try {
     const resp = await fetch("/api/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model: model.id, prompt }),
+      body: JSON.stringify({ model: model.id, prompt, partial,
+                             batch: state[side].batch, side }),
     });
-    const data = await resp.json();
+    const data = await parseJson(resp);
     if (!resp.ok || data.error) throw new Error(data.error || `HTTP ${resp.status}`);
+    state[side].raw = data.raw || "";
+    state[side].id = data.id || "";
     renderResult(side, data);
+    setMeta(side, data.elapsed, data.truncated);
+    setTruncated(side, data.truncated);
   } catch (e) {
+    state[side].id = "";
     showError(side, e.message);
   } finally {
     setLoading(side, false);
+    updateVoteButtons();
   }
+}
+
+async function continueGen(side) {
+  const btn = document.getElementById(`continue-${side}`);
+  btn.disabled = true;
+  btn.textContent = "Continuing…";
+  await generateOne(side, state[side].prompt, state[side].raw);
+  btn.disabled = false;
+  btn.textContent = "Continue +2k →";
+}
+
+// ── Voting (preference pairs) ──────────────────────────────────────────────
+function bothReady() {
+  return Boolean(state.a.id && state.b.id);
+}
+
+function resetVotes() {
+  voted = false;
+  ["a", "b"].forEach(s => {
+    state[s].id = "";
+    const btn = document.getElementById(`vote-${s}`);
+    btn.classList.remove("is-winner", "is-loser");
+    btn.textContent = "▲ This one's better";
+  });
+  updateVoteButtons();
+}
+
+function updateVoteButtons() {
+  const ready = bothReady() && !voted;
+  ["a", "b"].forEach(s => {
+    document.getElementById(`vote-${s}`).disabled = !ready;
+  });
+}
+
+async function vote(side) {
+  if (!bothReady() || voted) return;
+  voted = true;
+  updateVoteButtons();
+  markWinner(side);
+
+  const loser = side === "a" ? "b" : "a";
+  const payload = {
+    batch: state[side].batch,
+    prompt: state[side].prompt,
+    winner: side,
+    sides: {
+      a: { id: state.a.id, model: state.a.model?.id },
+      b: { id: state.b.id, model: state.b.model?.id },
+    },
+  };
+  try {
+    const resp = await fetch("/api/vote", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await parseJson(resp);
+    if (!resp.ok || data.error) throw new Error(data.error || `HTTP ${resp.status}`);
+  } catch (e) {
+    // Roll back so the user can re-vote.
+    voted = false;
+    document.getElementById(`vote-${side}`).classList.remove("is-winner");
+    document.getElementById(`vote-${loser}`).classList.remove("is-loser");
+    updateVoteButtons();
+    alert("Vote failed: " + e.message);
+  }
+}
+
+function markWinner(side) {
+  const loser = side === "a" ? "b" : "a";
+  const win = document.getElementById(`vote-${side}`);
+  const lose = document.getElementById(`vote-${loser}`);
+  win.classList.add("is-winner");
+  win.classList.remove("is-loser");
+  win.textContent = "✓ Chosen";
+  lose.classList.add("is-loser");
+  lose.classList.remove("is-winner");
+  lose.textContent = "▲ This one's better";
 }
 
 function buildPage(html, css, js) {
@@ -667,6 +904,33 @@ function setLoading(side, on, modelId) {
   }
   const frame = document.getElementById(`frame-${side}`);
   if (!frame.hidden) frame.style.opacity = on ? "0.25" : "1";
+  if (on) startTimer(side); else stopTimer(side);
+}
+
+function startTimer(side) {
+  stopTimer(side);
+  const el = document.getElementById(`loading-timer-${side}`);
+  const t0 = performance.now();
+  el.textContent = "0.0s";
+  timers[side] = setInterval(() => {
+    el.textContent = ((performance.now() - t0) / 1000).toFixed(1) + "s";
+  }, 100);
+}
+
+function stopTimer(side) {
+  if (timers[side]) { clearInterval(timers[side]); timers[side] = null; }
+}
+
+function setMeta(side, elapsed, truncated) {
+  const el = document.getElementById(`meta-${side}`);
+  if (elapsed == null) { el.textContent = ""; return; }
+  el.textContent = (truncated ? "⚠ " : "✓ ") + elapsed + "s";
+  el.classList.toggle("is-truncated", !!truncated);
+}
+
+function setTruncated(side, on) {
+  document.getElementById(`wrap-${side}`).classList.toggle("is-truncated", !!on);
+  document.getElementById(`trunc-${side}`).hidden = !on;
 }
 
 function clearResult(side) {
@@ -690,6 +954,14 @@ document.addEventListener("DOMContentLoaded", () => {
     .addEventListener("click", generatePrompt);
   document.getElementById("btn-generate")
     .addEventListener("click", generateBoth);
+  document.getElementById("continue-a")
+    .addEventListener("click", () => continueGen("a"));
+  document.getElementById("continue-b")
+    .addEventListener("click", () => continueGen("b"));
+  document.getElementById("vote-a")
+    .addEventListener("click", () => vote("a"));
+  document.getElementById("vote-b")
+    .addEventListener("click", () => vote("b"));
 
   // Cmd/Ctrl+Enter to generate from textarea
   document.getElementById("prompt-input").addEventListener("keydown", (e) => {

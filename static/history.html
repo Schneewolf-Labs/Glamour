@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Glamour — History</title>
+<style>
+:root {
+  --bg:        #0c0c11;
+  --panel:     #12121a;
+  --surface:   #1a1a27;
+  --border:    #22223a;
+  --accent:    #818cf8;
+  --text:      #e2e8f0;
+  --muted:     #64748b;
+  --error:     #f87171;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  min-height: 100%;
+}
+
+header {
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px;
+  height: 44px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.logo { display: flex; align-items: center; gap: 8px; }
+.logo-mark {
+  width: 22px; height: 22px;
+  background: linear-gradient(135deg, #4f46e5, #a5b4fc);
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px;
+}
+.logo-name {
+  font-size: 14px; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase;
+}
+.logo-tag { font-size: 11px; color: var(--muted); }
+
+.header-link {
+  margin-left: auto;
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 12px; font-weight: 500;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.header-link:hover { color: var(--text); border-color: var(--accent); }
+
+main {
+  padding: 24px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 660px);
+  justify-content: center;
+  gap: 20px;
+}
+
+.empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: var(--muted);
+  padding: 80px 20px;
+}
+
+.battle {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.battle-head {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.battle-prompt {
+  font-size: 13px;
+  color: var(--text);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.battle-time {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.battle-sides {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.side {
+  padding: 12px;
+  min-width: 0;
+}
+.side + .side { border-left: 1px solid var(--border); }
+
+.side-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.side-label {
+  font-size: 10px; font-weight: 700;
+  color: var(--muted);
+}
+
+.side-model {
+  font-size: 11px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.badge {
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.badge.trunc { color: var(--error); }
+
+.thumb {
+  display: block;
+  width: 300px;
+  height: 225px;
+  overflow: hidden;
+  border-radius: 6px;
+  background: #fff;
+  position: relative;
+  border: 1px solid var(--border);
+}
+
+.thumb iframe {
+  width: 1200px;
+  height: 900px;
+  border: none;
+  transform: scale(0.25);
+  transform-origin: top left;
+  pointer-events: none;
+}
+
+.thumb-link { display: block; }
+.thumb-link:hover .thumb { border-color: var(--accent); }
+
+.thumb-missing {
+  width: 300px; height: 225px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--muted); font-size: 11px;
+  border: 1px dashed var(--border); border-radius: 6px;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-mark">✦</div>
+    <span class="logo-name">Glamour</span>
+    <span class="logo-tag">History</span>
+  </div>
+  <a class="header-link" href="/">← Arena</a>
+</header>
+
+<main id="grid">
+  <div class="empty" id="loading">Loading history…</div>
+</main>
+
+<script>
+"use strict";
+
+function esc(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function sideHtml(label, side) {
+  if (!side) {
+    return `<div class="side">
+      <div class="side-meta"><span class="side-label">${label}</span></div>
+      <div class="thumb-missing">no output</div>
+    </div>`;
+  }
+  const badge = side.truncated
+    ? `<span class="badge trunc">⚠ ${esc(side.elapsed)}s</span>`
+    : `<span class="badge">${esc(side.elapsed)}s</span>`;
+  return `<div class="side">
+    <div class="side-meta">
+      <span class="side-label">${label}</span>
+      <span class="side-model" title="${esc(side.model)}">${esc(side.model)}</span>
+      ${badge}
+    </div>
+    <a class="thumb-link" href="/job/${esc(side.id)}" target="_blank" rel="noopener">
+      <div class="thumb"><iframe src="/job/${esc(side.id)}" sandbox="allow-scripts" scrolling="no"></iframe></div>
+    </a>
+  </div>`;
+}
+
+function battleHtml(b) {
+  const when = b.iso ? new Date(b.iso).toLocaleString() : "";
+  return `<div class="battle">
+    <div class="battle-head">
+      <div class="battle-prompt">${esc(b.prompt)}</div>
+      <div class="battle-time">${esc(when)}</div>
+    </div>
+    <div class="battle-sides">
+      ${sideHtml("A", b.sides.a)}
+      ${sideHtml("B", b.sides.b)}
+    </div>
+  </div>`;
+}
+
+async function load() {
+  const grid = document.getElementById("grid");
+  try {
+    const resp = await fetch("/api/jobs");
+    const battles = await resp.json();
+    if (!Array.isArray(battles) || battles.length === 0) {
+      grid.innerHTML = `<div class="empty">No designs yet. Head to the <a href="/" style="color:var(--accent)">arena</a> and generate some.</div>`;
+      return;
+    }
+    grid.innerHTML = battles.map(battleHtml).join("");
+  } catch (e) {
+    grid.innerHTML = `<div class="empty">Failed to load history: ${esc(e.message)}</div>`;
+  }
+}
+
+load();
+</script>
+</body>
+</html>
