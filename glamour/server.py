@@ -35,7 +35,33 @@ STATIC = str(ROOT / "static")
 OUT = ROOT / "output"
 JOBS_PATH = OUT / "jobs.jsonl"
 VOTES_PATH = OUT / "votes.jsonl"
+SETTINGS_PATH = OUT / "settings.json"
 app = Flask(__name__)
+
+# --------------------------------------------------------------------------- #
+# settings — persisted to output/settings.json
+# --------------------------------------------------------------------------- #
+DEFAULT_SETTINGS = {"initial_token_limit": 8192, "favorites": []}
+_settings_lock = Lock()
+
+
+def _load_settings() -> dict:
+    with _settings_lock:
+        data = {}
+        if SETTINGS_PATH.exists():
+            try:
+                data = json.loads(SETTINGS_PATH.read_text())
+            except (json.JSONDecodeError, OSError):
+                data = {}
+        return {**DEFAULT_SETTINGS, **data}
+
+
+def _save_settings(data: dict) -> dict:
+    with _settings_lock:
+        OUT.mkdir(exist_ok=True)
+        merged = {**DEFAULT_SETTINGS, **data}
+        SETTINGS_PATH.write_text(json.dumps(merged, indent=2))
+        return merged
 
 # The client loads .env via _load_dotenv() on import.
 _client = OpenRouter()
@@ -201,19 +227,32 @@ _recent_prompts: deque[str] = deque(maxlen=12)
 # fenced-block extraction — robust to quotes/newlines that break JSON
 # --------------------------------------------------------------------------- #
 _BLOCK_RE = re.compile(r"```[ \t]*(\w+)?[ \t]*\r?\n(.*?)```", re.DOTALL)
+# An unterminated trailing fence — happens when the output is truncated
+# mid-block. Salvaging it lets the user Continue instead of getting an error.
+_OPEN_BLOCK_RE = re.compile(r"```[ \t]*(\w+)?[ \t]*\r?\n(.*)$", re.DOTALL)
 _ALIASES = {"html": "html", "css": "css", "js": "js", "javascript": "js"}
 
 
 def _extract_blocks(text: str) -> dict:
     """Pull the html/css/js fenced code blocks out of a model response.
 
-    First block of each language wins. Returns {"html","css","js"}.
+    First block of each language wins. A final, unterminated block (from a
+    truncated response) is salvaged too. Returns {"html","css","js"}.
     """
     found: dict[str, str] = {}
+    last_end = 0
     for m in _BLOCK_RE.finditer(text):
         lang = _ALIASES.get((m.group(1) or "").lower())
         if lang and lang not in found:
             found[lang] = m.group(2).rstrip("\n")
+        last_end = m.end()
+    # Salvage an unterminated block after the last closed one.
+    tail = text[last_end:]
+    om = _OPEN_BLOCK_RE.search(tail)
+    if om:
+        lang = _ALIASES.get((om.group(1) or "").lower())
+        if lang and lang not in found:
+            found[lang] = om.group(2).rstrip("\n")
     return {"html": found.get("html", ""),
             "css": found.get("css", ""),
             "js": found.get("js", "")}
@@ -234,6 +273,38 @@ def api_models():
     except Exception as e:
         log.exception("models fetch failed")
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/settings", methods=["GET"])
+def api_get_settings():
+    return jsonify(_load_settings())
+
+
+@app.route("/api/settings", methods=["POST"])
+def api_set_settings():
+    body = request.get_json(force=True)
+    cur = _load_settings()
+    if "initial_token_limit" in body:
+        try:
+            n = int(body["initial_token_limit"])
+        except (ValueError, TypeError):
+            return jsonify({"error": "initial_token_limit must be an integer"}), 400
+        cur["initial_token_limit"] = max(256, min(n, 32000))
+    if "favorites" in body:
+        if not isinstance(body["favorites"], list):
+            return jsonify({"error": "favorites must be a list"}), 400
+        # de-dup, preserve order
+        seen, favs = set(), []
+        for x in body["favorites"]:
+            s = str(x)
+            if s and s not in seen:
+                seen.add(s)
+                favs.append(s)
+        cur["favorites"] = favs
+    saved = _save_settings(cur)
+    log.info("settings saved: token_limit=%s favorites=%d",
+             saved["initial_token_limit"], len(saved["favorites"]))
+    return jsonify(saved)
 
 
 @app.route("/api/generate-prompt", methods=["POST"])
@@ -273,7 +344,6 @@ def api_generate_prompt():
         return jsonify({"error": f"server error: {e}"}), 500
 
 
-GENERATE_MAX_TOKENS = 8192
 CONTINUE_MAX_TOKENS = 2000
 
 
@@ -297,7 +367,7 @@ def api_generate():
         max_tokens = CONTINUE_MAX_TOKENS
         mode = "continue"
     else:
-        max_tokens = GENERATE_MAX_TOKENS
+        max_tokens = _load_settings()["initial_token_limit"]
         mode = "generate"
 
     log.info("%s [%s] prompt=%r%s", mode, model, prompt[:80],
@@ -392,15 +462,16 @@ def api_vote():
     arena's preference-pair signal (chosen vs rejected) for ORPO/DPO."""
     body = request.get_json(force=True)
     winner = (body.get("winner") or "").strip()
-    if winner not in ("a", "b"):
-        return jsonify({"error": "winner must be 'a' or 'b'"}), 400
+    sides = body.get("sides") or {}
+    if not winner or winner not in sides:
+        return jsonify({"error": "winner must be one of the competing sides"}), 400
     record = {
         "ts": time.time(),
         "iso": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "batch": body.get("batch"),
         "prompt": body.get("prompt"),
         "winner": winner,
-        "sides": body.get("sides"),  # {a:{id,model}, b:{id,model}}
+        "sides": sides,  # {a:{id,model}, b:{id,model}, …}
     }
     _append_vote(record)
     log.info("vote batch=%s winner=%s", record["batch"], winner)

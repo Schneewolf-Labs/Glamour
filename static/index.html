@@ -48,72 +48,64 @@ header {
   user-select: none;
 }
 
-.logo {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
+.logo { display: flex; align-items: center; gap: 8px; }
 
 .logo-mark {
-  width: 22px;
-  height: 22px;
+  width: 22px; height: 22px;
   background: linear-gradient(135deg, var(--accent-lo), var(--accent-hi));
   border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: flex; align-items: center; justify-content: center;
   font-size: 12px;
 }
 
 .logo-name {
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 14px; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase;
   color: var(--text);
 }
 
-.logo-tag {
-  font-size: 11px;
+.logo-tag { font-size: 11px; color: var(--muted); font-weight: 400; }
+
+.header-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+
+.header-btn {
+  height: auto;
+  padding: 5px 10px;
+  font-size: 12px; font-weight: 500;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
   color: var(--muted);
-  font-weight: 400;
 }
+.header-btn:hover:not(:disabled) { color: var(--text); border-color: var(--accent); background: var(--surface); }
+.header-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .header-link {
-  margin-left: auto;
   color: var(--muted);
   text-decoration: none;
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 12px; font-weight: 500;
   padding: 5px 10px;
   border: 1px solid var(--border);
   border-radius: 6px;
   transition: color 0.15s, border-color 0.15s;
 }
-
-.header-link:hover {
-  color: var(--text);
-  border-color: var(--accent);
-}
+.header-link:hover { color: var(--text); border-color: var(--accent); }
 
 /* ── Arena ───────────────────────────────────────────────── */
 #arena {
-  display: grid;
-  grid-template-columns: 1fr 1px 1fr;
+  display: flex;
   min-height: 0;
-}
-
-.divider {
-  background: var(--border);
 }
 
 /* ── Panel ───────────────────────────────────────────────── */
 .panel {
+  flex: 1 1 0;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   background: var(--panel);
-  min-height: 0;
 }
+.panel + .panel { border-left: 1px solid var(--border); }
 
 .panel-header {
   padding: 8px 10px;
@@ -142,15 +134,24 @@ header {
   white-space: nowrap;
   flex-shrink: 0;
 }
-
 .panel-meta.is-truncated { color: var(--error); }
 
-/* ── Model Picker ─────────────────────────────────────────── */
-.picker {
-  position: relative;
-  flex: 1;
-  min-width: 0;
+.panel-remove {
+  height: auto;
+  width: 22px;
+  padding: 0;
+  font-size: 15px;
+  line-height: 1;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--muted);
+  flex-shrink: 0;
 }
+.panel-remove:hover { color: var(--error); border-color: var(--error); background: transparent; }
+
+/* ── Model Picker ─────────────────────────────────────────── */
+.picker { position: relative; flex: 1; min-width: 0; }
 
 .picker-input {
   width: 100%;
@@ -165,21 +166,13 @@ header {
   transition: border-color 0.15s;
   cursor: pointer;
 }
-
-.picker-input:focus {
-  border-color: var(--accent);
-  cursor: text;
-}
-
-.picker-input::placeholder {
-  color: var(--muted);
-}
+.picker-input:focus { border-color: var(--accent); cursor: text; }
+.picker-input::placeholder { color: var(--muted); }
 
 .picker-drop {
   position: absolute;
   top: calc(100% + 4px);
-  left: 0;
-  right: 0;
+  left: 0; right: 0;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -189,11 +182,7 @@ header {
   display: none;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
 }
-
-.picker-drop.open {
-  display: block;
-}
-
+.picker-drop.open { display: block; }
 .picker-drop::-webkit-scrollbar { width: 4px; }
 .picker-drop::-webkit-scrollbar-track { background: transparent; }
 .picker-drop::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
@@ -208,155 +197,89 @@ header {
   text-overflow: ellipsis;
   font-size: 12px;
 }
+.picker-option:hover { background: rgba(129, 140, 248, 0.08); color: var(--text); }
+.picker-option.is-selected { color: var(--accent); background: rgba(129, 140, 248, 0.06); }
 
-.picker-option:hover {
-  background: rgba(129, 140, 248, 0.08);
-  color: var(--text);
-}
-
-.picker-option.is-selected {
-  color: var(--accent);
-  background: rgba(129, 140, 248, 0.06);
-}
-
-.picker-empty {
-  padding: 12px;
-  color: var(--muted);
-  text-align: center;
-  font-size: 12px;
-}
+.picker-empty { padding: 12px; color: var(--muted); text-align: center; font-size: 12px; }
 
 /* ── Iframe area ─────────────────────────────────────────── */
-.iframe-wrap {
-  flex: 1;
-  position: relative;
-  min-height: 0;
-  background: #fff;
-}
+.iframe-wrap { flex: 1; position: relative; min-height: 0; background: #fff; }
 
-iframe {
-  width: 100%;
-  height: 100%;
-  border: none;
-  display: block;
-  transition: opacity 0.2s;
-}
+iframe { width: 100%; height: 100%; border: none; display: block; transition: opacity 0.2s; }
 
 .panel-empty {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  color: var(--muted);
-  pointer-events: none;
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 10px; color: var(--muted); pointer-events: none;
 }
-
-.panel-empty .empty-icon {
-  font-size: 36px;
-  opacity: 0.3;
-}
-
-.panel-empty .empty-text {
-  font-size: 12px;
-  opacity: 0.5;
-}
+.panel-empty .empty-icon { font-size: 36px; opacity: 0.3; }
+.panel-empty .empty-text { font-size: 12px; opacity: 0.5; }
 
 /* ── Loading overlay ─────────────────────────────────────── */
 .loading-overlay {
-  position: absolute;
-  inset: 0;
+  position: absolute; inset: 0;
   background: rgba(12, 12, 17, 0.82);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  backdrop-filter: blur(3px);
-  z-index: 10;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 14px; backdrop-filter: blur(3px); z-index: 10;
 }
-
 .spinner {
-  width: 32px;
-  height: 32px;
+  width: 32px; height: 32px;
   border: 2px solid var(--border);
   border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 0.75s linear infinite;
 }
-
 @keyframes spin { to { transform: rotate(360deg); } }
-
 .loading-model {
-  font-size: 11px;
-  color: var(--muted);
-  max-width: 200px;
-  text-align: center;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: 11px; color: var(--muted);
+  max-width: 200px; text-align: center;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-
-.loading-timer {
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-  color: var(--accent);
-}
+.loading-timer { font-size: 11px; font-variant-numeric: tabular-nums; color: var(--accent); }
 
 /* ── Error state ─────────────────────────────────────────── */
 .error-overlay {
-  position: absolute;
-  inset: 0;
+  position: absolute; inset: 0;
   background: var(--panel);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 32px;
-  text-align: center;
-  z-index: 10;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 10px; padding: 32px; text-align: center; z-index: 10;
 }
-
 .error-icon { font-size: 28px; opacity: 0.6; }
 .error-msg { color: var(--error); font-size: 12px; line-height: 1.6; }
+.retry-btn {
+  height: auto;
+  margin-top: 4px;
+  padding: 6px 16px;
+  font-size: 12px; font-weight: 600;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+}
+.retry-btn:hover { border-color: var(--accent); color: var(--accent); }
 
 /* ── Truncation (hit token limit) ────────────────────────── */
-.iframe-wrap.is-truncated {
-  box-shadow: inset 0 0 0 2px var(--error);
-}
+.iframe-wrap.is-truncated { box-shadow: inset 0 0 0 2px var(--error); }
 
 .truncate-bar {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  left: 0; right: 0; bottom: 0;
   z-index: 12;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 8px 12px;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; padding: 8px 12px;
   background: rgba(248, 113, 113, 0.95);
-  color: #fff;
-  font-size: 12px;
-  font-weight: 500;
+  color: #fff; font-size: 12px; font-weight: 500;
 }
-
 .continue-btn {
   height: auto;
   padding: 5px 12px;
-  background: #fff;
-  color: #b91c1c;
-  border: none;
-  border-radius: 5px;
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
+  background: #fff; color: #b91c1c;
+  border: none; border-radius: 5px;
+  font-size: 12px; font-weight: 600; white-space: nowrap;
 }
-
 .continue-btn:hover { background: #fee2e2; }
 .continue-btn:disabled { opacity: 0.6; }
 
@@ -364,117 +287,167 @@ iframe {
 #prompt-bar {
   background: var(--panel);
   border-top: 1px solid var(--border);
-  display: flex;
-  align-items: stretch;
-  gap: 10px;
+  display: flex; align-items: stretch; gap: 10px;
   padding: 10px 14px;
 }
-
 #prompt-input {
-  flex: 1;
-  resize: none;
-  background: var(--bg);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  flex: 1; resize: none;
+  background: var(--bg); color: var(--text);
+  border: 1px solid var(--border); border-radius: 8px;
   padding: 10px 12px;
-  font-size: 13px;
-  font-family: inherit;
-  line-height: 1.5;
-  outline: none;
-  transition: border-color 0.15s;
+  font-size: 13px; font-family: inherit; line-height: 1.5;
+  outline: none; transition: border-color 0.15s;
 }
+#prompt-input:focus { border-color: var(--accent); }
+#prompt-input::placeholder { color: var(--muted); }
 
-#prompt-input:focus {
-  border-color: var(--accent);
-}
-
-#prompt-input::placeholder {
-  color: var(--muted);
-}
-
-.bar-actions {
-  display: flex;
-  flex-direction: column;
-  justify-content: stretch;
-  gap: 6px;
-}
+.bar-actions { display: flex; flex-direction: column; justify-content: stretch; gap: 6px; }
 
 button {
   padding: 0 18px;
   height: 38px;
   border: 1px solid var(--border);
   border-radius: 6px;
-  font-size: 12px;
-  font-weight: 500;
-  font-family: inherit;
+  font-size: 12px; font-weight: 500; font-family: inherit;
   cursor: pointer;
-  background: var(--surface);
-  color: var(--text);
+  background: var(--surface); color: var(--text);
   transition: border-color 0.15s, background 0.15s, opacity 0.15s;
   white-space: nowrap;
 }
-
-button:hover {
-  background: var(--border);
-}
-
-button.primary {
-  background: var(--accent-lo);
-  border-color: var(--accent-lo);
-  color: #fff;
-}
-
-button.primary:hover {
-  background: var(--accent);
-  border-color: var(--accent);
-}
-
-button:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
+button:hover { background: var(--border); }
+button.primary { background: var(--accent-lo); border-color: var(--accent-lo); color: #fff; }
+button.primary:hover { background: var(--accent); border-color: var(--accent); }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
 
 /* ── Vote bar ────────────────────────────────────────────── */
-.panel-vote {
-  flex-shrink: 0;
-  padding: 8px;
-  border-top: 1px solid var(--border);
-  display: flex;
-}
-
+.panel-vote { flex-shrink: 0; padding: 8px; border-top: 1px solid var(--border); display: flex; }
 .vote-btn {
-  flex: 1;
-  height: 34px;
-  padding: 0 14px;
+  flex: 1; height: 34px; padding: 0 14px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 6px;
   color: var(--text);
+  font-size: 12px; font-weight: 600;
+}
+.vote-btn:hover:not(:disabled) { border-color: var(--win); color: var(--win); }
+.vote-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.vote-btn.is-winner { background: var(--win); border-color: var(--win); color: #04120b; opacity: 1; }
+.vote-btn.is-loser { opacity: 0.4; }
+
+/* ── Blind toggle ────────────────────────────────────────── */
+.header-btn.on {
+  background: var(--accent-lo);
+  border-color: var(--accent-lo);
+  color: #fff;
+}
+.header-btn.on:hover { background: var(--accent); border-color: var(--accent); }
+
+.picker-input.blinded {
+  color: var(--muted);
+  font-style: italic;
+  cursor: default;
+}
+
+/* ── Settings modal ──────────────────────────────────────── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
+  width: 520px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 80px);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
+}
+
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.modal-head h2 { font-size: 15px; font-weight: 700; }
+
+.modal-close {
+  height: auto; width: 28px; padding: 0;
+  font-size: 18px; line-height: 1;
+  background: transparent; border: 1px solid var(--border);
+  border-radius: 6px; color: var(--muted);
+}
+.modal-close:hover { color: var(--text); border-color: var(--accent); background: transparent; }
+
+.modal-body {
+  padding: 18px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field > label { font-size: 12px; font-weight: 600; color: var(--text); }
+.field small { font-size: 11px; color: var(--muted); line-height: 1.5; }
+
+#set-token {
+  width: 140px;
+  padding: 8px 10px;
+  background: var(--bg); color: var(--text);
+  border: 1px solid var(--border); border-radius: 6px;
+  font-size: 13px; font-family: inherit; outline: none;
+}
+#set-token:focus { border-color: var(--accent); }
+
+.fav-add { position: relative; }
+#fav-drop { top: calc(100% + 4px); }
+
+.fav-list { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+
+.fav-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
   font-size: 12px;
-  font-weight: 600;
 }
+.fav-chip-id {
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--text);
+}
+.fav-chip-remove {
+  height: auto; width: 20px; padding: 0;
+  font-size: 13px; line-height: 1;
+  background: transparent; border: none; color: var(--muted);
+}
+.fav-chip-remove:hover { color: var(--error); background: transparent; }
 
-.vote-btn:hover:not(:disabled) {
-  border-color: var(--win);
-  color: var(--win);
-}
+.fav-empty { font-size: 11px; color: var(--muted); padding: 6px 2px; }
 
-.vote-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
+.modal-foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 14px 18px;
+  border-top: 1px solid var(--border);
 }
-
-.vote-btn.is-winner {
-  background: var(--win);
-  border-color: var(--win);
-  color: #04120b;
-  opacity: 1;
-}
-
-.vote-btn.is-loser {
-  opacity: 0.4;
-}
+.settings-status { font-size: 11px; color: var(--win); margin-right: auto; }
 
 /* ── Utility ─────────────────────────────────────────────── */
 [hidden] { display: none !important; }
@@ -488,87 +461,48 @@ button:disabled {
     <span class="logo-name">Glamour</span>
     <span class="logo-tag">Design Arena</span>
   </div>
-  <a class="header-link" href="/history">History →</a>
+  <div class="header-right">
+    <button id="btn-blind" class="header-btn">🎭 Blind: Off</button>
+    <button id="btn-add" class="header-btn">+ Competitor</button>
+    <button id="btn-settings" class="header-btn" title="Settings">⚙</button>
+    <a class="header-link" href="/history">History →</a>
+  </div>
 </header>
 
-<main id="arena">
+<main id="arena"></main>
 
-  <!-- Left panel -->
-  <div class="panel" id="panel-a">
-    <div class="panel-header">
-      <span class="panel-label">A</span>
-      <div class="picker" id="picker-a">
-        <input class="picker-input" id="input-a" placeholder="Search models…" autocomplete="off" spellcheck="false">
-        <div class="picker-drop" id="drop-a"></div>
-      </div>
-      <span class="panel-meta" id="meta-a"></span>
+<!-- Settings modal -->
+<div id="settings-overlay" class="overlay" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h2>Settings</h2>
+      <button id="settings-close" class="modal-close" title="Close">×</button>
     </div>
-    <div class="iframe-wrap" id="wrap-a">
-      <div class="panel-empty" id="empty-a">
-        <div class="empty-icon">◈</div>
-        <div class="empty-text">Generate a design to see it here</div>
+    <div class="modal-body">
+      <div class="field">
+        <label for="set-token">Initial token limit</label>
+        <input type="number" id="set-token" min="256" max="32000" step="256">
+        <small>Max tokens for the first generation. Truncated designs can still be continued (+2k).</small>
       </div>
-      <div class="loading-overlay" id="loading-a" hidden>
-        <div class="spinner"></div>
-        <div class="loading-model" id="loading-model-a"></div>
-        <div class="loading-timer" id="loading-timer-a">0.0s</div>
+      <div class="field">
+        <label>Favorite models</label>
+        <small>Used by Blind mode to draw anonymous competitors. Add at least 2.</small>
+        <div class="fav-add">
+          <input id="fav-search" class="picker-input" placeholder="Search models to add…" autocomplete="off" spellcheck="false">
+          <div id="fav-drop" class="picker-drop"></div>
+        </div>
+        <div id="fav-list" class="fav-list"></div>
       </div>
-      <div class="error-overlay" id="error-a" hidden>
-        <div class="error-icon">⚠</div>
-        <div class="error-msg" id="error-msg-a"></div>
-      </div>
-      <div class="truncate-bar" id="trunc-a" hidden>
-        <span>⚠ Hit token limit — design is cut off</span>
-        <button class="continue-btn" id="continue-a">Continue +2k →</button>
-      </div>
-      <iframe id="frame-a" sandbox="allow-scripts" hidden></iframe>
     </div>
-    <div class="panel-vote">
-      <button class="vote-btn" id="vote-a" disabled>▲ This one's better</button>
+    <div class="modal-foot">
+      <span id="settings-status" class="settings-status"></span>
+      <button id="settings-save" class="primary">Save</button>
     </div>
   </div>
-
-  <div class="divider"></div>
-
-  <!-- Right panel -->
-  <div class="panel" id="panel-b">
-    <div class="panel-header">
-      <span class="panel-label">B</span>
-      <div class="picker" id="picker-b">
-        <input class="picker-input" id="input-b" placeholder="Search models…" autocomplete="off" spellcheck="false">
-        <div class="picker-drop" id="drop-b"></div>
-      </div>
-      <span class="panel-meta" id="meta-b"></span>
-    </div>
-    <div class="iframe-wrap" id="wrap-b">
-      <div class="panel-empty" id="empty-b">
-        <div class="empty-icon">◈</div>
-        <div class="empty-text">Generate a design to see it here</div>
-      </div>
-      <div class="loading-overlay" id="loading-b" hidden>
-        <div class="spinner"></div>
-        <div class="loading-model" id="loading-model-b"></div>
-        <div class="loading-timer" id="loading-timer-b">0.0s</div>
-      </div>
-      <div class="error-overlay" id="error-b" hidden>
-        <div class="error-icon">⚠</div>
-        <div class="error-msg" id="error-msg-b"></div>
-      </div>
-      <div class="truncate-bar" id="trunc-b" hidden>
-        <span>⚠ Hit token limit — design is cut off</span>
-        <button class="continue-btn" id="continue-b">Continue +2k →</button>
-      </div>
-      <iframe id="frame-b" sandbox="allow-scripts" hidden></iframe>
-    </div>
-    <div class="panel-vote">
-      <button class="vote-btn" id="vote-b" disabled>▲ This one's better</button>
-    </div>
-  </div>
-
-</main>
+</div>
 
 <footer id="prompt-bar">
-  <textarea id="prompt-input" placeholder="Describe the page you want both models to design…" rows="3"></textarea>
+  <textarea id="prompt-input" placeholder="Describe the page you want every model to design…" rows="3"></textarea>
   <div class="bar-actions">
     <button id="btn-gen-prompt">✦ Generate Prompt</button>
     <button id="btn-generate" class="primary">Generate →</button>
@@ -590,109 +524,179 @@ async function parseJson(resp) {
   }
 }
 
+function escHtml(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
 // ── State ──────────────────────────────────────────────────────────────────
+const MIN_PANELS = 2, MAX_PANELS = 6;
+const DEFAULT_MODELS = ["~anthropic/claude-opus-latest", "openai/gpt-5.3-codex"];
+
 let allModels = [];
-const state = {
-  a: { model: null, raw: "", prompt: "", batch: "", id: "" },
-  b: { model: null, raw: "", prompt: "", batch: "", id: "" },
-};
-const timers = { a: null, b: null };
+let panels = [];          // ordered array of panel objects
 let voted = false;
 
+let favorites = [];       // favorite model ids (from settings), for blind mode
+let tokenLimit = 8192;    // initial token limit (from settings), display only
+let blind = false;        // blind mode: hide model identities until vote
+
+let arena, promptInput, genBtn, promptBtn, addBtn, blindBtn;
+
+// A panel's position determines its letter label and "side" key (a, b, c…).
+function indexOfPanel(p) { return panels.indexOf(p); }
+function sideOf(p)  { return String.fromCharCode(97 + indexOfPanel(p)); }
+function labelOf(p) { return String.fromCharCode(65 + indexOfPanel(p)); }
+
+const PANEL_TEMPLATE = `
+  <div class="panel-header">
+    <span class="panel-label">A</span>
+    <div class="picker">
+      <input class="picker-input" placeholder="Search models…" autocomplete="off" spellcheck="false">
+      <div class="picker-drop"></div>
+    </div>
+    <span class="panel-meta"></span>
+    <button class="panel-remove" title="Remove competitor">×</button>
+  </div>
+  <div class="iframe-wrap">
+    <div class="panel-empty">
+      <div class="empty-icon">◈</div>
+      <div class="empty-text">Generate a design to see it here</div>
+    </div>
+    <div class="loading-overlay" hidden>
+      <div class="spinner"></div>
+      <div class="loading-model"></div>
+      <div class="loading-timer">0.0s</div>
+    </div>
+    <div class="error-overlay" hidden>
+      <div class="error-icon">⚠</div>
+      <div class="error-msg"></div>
+      <button class="retry-btn">↻ Retry</button>
+    </div>
+    <div class="truncate-bar" hidden>
+      <span>⚠ Hit token limit — design is cut off</span>
+      <button class="continue-btn">Continue +2k →</button>
+    </div>
+    <iframe sandbox="allow-scripts" hidden></iframe>
+  </div>
+  <div class="panel-vote">
+    <button class="vote-btn" disabled>▲ This one's better</button>
+  </div>
+`;
+
+// ── Panel lifecycle ────────────────────────────────────────────────────────
+function createPanel(modelId) {
+  if (panels.length >= MAX_PANELS) return null;
+  const root = document.createElement("div");
+  root.className = "panel";
+  root.innerHTML = PANEL_TEMPLATE;
+
+  const els = {
+    root,
+    label:        root.querySelector(".panel-label"),
+    input:        root.querySelector(".picker-input"),
+    drop:         root.querySelector(".picker-drop"),
+    meta:         root.querySelector(".panel-meta"),
+    remove:       root.querySelector(".panel-remove"),
+    wrap:         root.querySelector(".iframe-wrap"),
+    empty:        root.querySelector(".panel-empty"),
+    loading:      root.querySelector(".loading-overlay"),
+    loadingModel: root.querySelector(".loading-model"),
+    timer:        root.querySelector(".loading-timer"),
+    error:        root.querySelector(".error-overlay"),
+    errorMsg:     root.querySelector(".error-msg"),
+    retry:        root.querySelector(".retry-btn"),
+    trunc:        root.querySelector(".truncate-bar"),
+    continueBtn:  root.querySelector(".continue-btn"),
+    frame:        root.querySelector("iframe"),
+    voteBtn:      root.querySelector(".vote-btn"),
+  };
+
+  const p = { els, model: null, raw: "", prompt: "", batch: "", jobId: "", timerHandle: null };
+
+  initPicker(p);
+  els.remove.addEventListener("click", () => removePanel(p));
+  els.continueBtn.addEventListener("click", () => continueGen(p));
+  els.retry.addEventListener("click", () => regen(p));
+  els.voteBtn.addEventListener("click", () => vote(p));
+
+  panels.push(p);
+  arena.appendChild(root);
+  if (modelId) selectModel(p, modelId);
+  if (!allModels.length) els.input.value = modelId || "";
+
+  renderLabels();
+  updateControls();
+  return p;
+}
+
+function removePanel(p) {
+  if (panels.length <= MIN_PANELS) return;
+  stopTimer(p);
+  arena.removeChild(p.els.root);
+  panels = panels.filter(x => x !== p);
+  renderLabels();
+  updateControls();
+  updateVoteButtons();
+}
+
+function renderLabels() {
+  panels.forEach((p, i) => { p.els.label.textContent = String.fromCharCode(65 + i); });
+}
+
+function updateControls() {
+  addBtn.disabled = panels.length >= MAX_PANELS;
+  const removable = panels.length > MIN_PANELS;
+  panels.forEach(p => { p.els.remove.hidden = !removable; });
+}
+
 // ── Model picker ───────────────────────────────────────────────────────────
-function escHtml(s) {
-  return String(s)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-function initPicker(side) {
-  const input = document.getElementById(`input-${side}`);
-  const drop  = document.getElementById(`drop-${side}`);
-  const picker = document.getElementById(`picker-${side}`);
-
-  function openDrop() {
-    renderOptions(side, input.value);
-    drop.classList.add("open");
-  }
-
-  function closeDrop() {
+function initPicker(p) {
+  const { input, drop } = p.els;
+  input.addEventListener("focus", () => { renderOptions(p, input.value); drop.classList.add("open"); });
+  input.addEventListener("input", () => { renderOptions(p, input.value); drop.classList.add("open"); });
+  input.addEventListener("blur", () => setTimeout(() => {
     drop.classList.remove("open");
-    // Restore display to selected model id
-    if (state[side].model) input.value = state[side].model.id;
-    else input.value = "";
-  }
-
-  input.addEventListener("focus", openDrop);
-
-  input.addEventListener("input", () => {
-    renderOptions(side, input.value);
-    drop.classList.add("open");
-  });
-
-  input.addEventListener("blur", () => {
-    // Delay so mousedown on an option fires first
-    setTimeout(closeDrop, 160);
-  });
-
-  input.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") { closeDrop(); input.blur(); }
-  });
-
-  // Close when clicking outside
-  document.addEventListener("click", (e) => {
-    if (!picker.contains(e.target)) drop.classList.remove("open");
-  });
+    if (blind && !p.revealed) input.value = "🎭 Hidden model";
+    else input.value = p.model ? p.model.id : "";
+  }, 160));
+  input.addEventListener("keydown", (e) => { if (e.key === "Escape") input.blur(); });
 }
 
-function renderOptions(side, query) {
-  const drop = document.getElementById(`drop-${side}`);
+function renderOptions(p, query) {
+  const drop = p.els.drop;
   const q = (query || "").toLowerCase().trim();
   const filtered = q
-    ? allModels.filter(m =>
-        m.id.toLowerCase().includes(q) ||
-        m.name.toLowerCase().includes(q))
+    ? allModels.filter(m => m.id.toLowerCase().includes(q) || m.name.toLowerCase().includes(q))
     : allModels;
-
   const shown = filtered.slice(0, 120);
 
-  if (shown.length === 0) {
+  if (!shown.length) {
     drop.innerHTML = `<div class="picker-empty">No models match "${escHtml(query)}"</div>`;
     return;
   }
-
-  const cur = state[side].model?.id;
-  drop.innerHTML = shown.map(m => {
-    const sel = m.id === cur ? " is-selected" : "";
-    return `<div class="picker-option${sel}" data-id="${escHtml(m.id)}" title="${escHtml(m.id)}">${escHtml(m.name)}</div>`;
-  }).join("");
-
+  const cur = p.model?.id;
+  drop.innerHTML = shown.map(m =>
+    `<div class="picker-option${m.id === cur ? " is-selected" : ""}" data-id="${escHtml(m.id)}" title="${escHtml(m.id)}">${escHtml(m.name)}</div>`
+  ).join("");
   drop.querySelectorAll(".picker-option").forEach(el => {
-    // mousedown (not click) so it fires before the input's blur
     el.addEventListener("mousedown", (e) => {
       e.preventDefault();
-      selectModel(side, el.dataset.id);
+      selectModel(p, el.dataset.id);
       drop.classList.remove("open");
     });
   });
 }
 
-function selectModel(side, id) {
-  const m = allModels.find(m => m.id === id);
-  if (!m) return;
-  state[side].model = m;
-  document.getElementById(`input-${side}`).value = m.id;
+function selectModel(p, id) {
+  p.model = allModels.find(m => m.id === id) || { id, name: id };
+  p.els.input.value = p.model.id;
 }
 
 // ── Load models ────────────────────────────────────────────────────────────
 async function loadModels() {
-  ["a", "b"].forEach(s => {
-    document.getElementById(`input-${s}`).value = "Loading models…";
-    document.getElementById(`input-${s}`).disabled = true;
-  });
-
+  panels.forEach(p => { p.els.input.value = "Loading models…"; p.els.input.disabled = true; });
   try {
     const resp = await fetch("/api/models");
     allModels = await parseJson(resp);
@@ -701,178 +705,102 @@ async function loadModels() {
     allModels = [];
     console.error("Failed to load models:", e);
   }
-
-  ["a", "b"].forEach(s => {
-    const input = document.getElementById(`input-${s}`);
-    input.disabled = false;
-    input.value = "";
-    input.placeholder = "Search models…";
-  });
-
-  // Default selections
-  const DEFAULTS = [
-    "~anthropic/claude-opus-latest",
-    "google/gemini-2.5-flash",
-  ];
-  DEFAULTS.forEach((id, i) => {
-    const side = i === 0 ? "a" : "b";
-    const m = allModels.find(m => m.id === id) || allModels[i] || null;
-    if (m) selectModel(side, m.id);
+  panels.forEach(p => {
+    p.els.input.disabled = false;
+    p.els.input.value = p.model ? p.model.id : "";
+    p.els.input.placeholder = "Search models…";
   });
 }
 
 // ── Generate prompt ────────────────────────────────────────────────────────
 async function generatePrompt() {
-  const btn = document.getElementById("btn-gen-prompt");
-  btn.disabled = true;
-  btn.textContent = "Generating…";
+  promptBtn.disabled = true;
+  promptBtn.textContent = "Generating…";
   try {
     const resp = await fetch("/api/generate-prompt", { method: "POST" });
     const data = await parseJson(resp);
     if (data.error) throw new Error(data.error);
-    document.getElementById("prompt-input").value = data.prompt;
+    promptInput.value = data.prompt;
   } catch (e) {
     alert("Could not generate prompt: " + e.message);
   } finally {
-    btn.disabled = false;
-    btn.textContent = "✦ Generate Prompt";
+    promptBtn.disabled = false;
+    promptBtn.textContent = "✦ Generate Prompt";
   }
 }
 
 // ── Generate designs ───────────────────────────────────────────────────────
-async function generateBoth() {
-  const prompt = document.getElementById("prompt-input").value.trim();
+async function generateAll() {
+  const prompt = promptInput.value.trim();
   if (!prompt) { alert("Enter a prompt first."); return; }
 
-  const missingModel = ["a","b"].find(s => !state[s].model);
-  if (missingModel) {
-    alert(`Select a model for panel ${missingModel.toUpperCase()} first.`);
-    return;
+  if (blind) {
+    if (favorites.length < panels.length) {
+      alert(`Blind mode needs at least ${panels.length} favorite models for ${panels.length} competitors (have ${favorites.length}). Add more in Settings or remove a competitor.`);
+      return;
+    }
+    assignBlindModels();
+  } else {
+    const missing = panels.find(p => !p.model);
+    if (missing) { alert(`Select a model for panel ${labelOf(missing)} first.`); return; }
   }
 
-  const btn = document.getElementById("btn-generate");
-  btn.disabled = true;
-
-  // One batch id ties the A/B pair together in history.
+  genBtn.disabled = true;
   const batch = (Date.now().toString(36) + Math.random().toString(36).slice(2, 6));
-  state.a.batch = state.b.batch = batch;
   resetVotes();
+  panels.forEach(p => { p.batch = batch; });
 
-  await Promise.all(["a", "b"].map(side => generateOne(side, prompt)));
-
-  btn.disabled = false;
+  await Promise.all(panels.map(p => generateOne(p, prompt)));
+  genBtn.disabled = false;
 }
 
-async function generateOne(side, prompt, partial = "") {
-  const model = state[side].model;
-  state[side].prompt = prompt;
-  setLoading(side, true, model.id);
-  clearResult(side);
-  setTruncated(side, false);
+async function generateOne(p, prompt, partial = "") {
+  p.prompt = prompt;
+  setLoading(p, true);
+  clearError(p);
+  setTruncated(p, false);
 
   try {
     const resp = await fetch("/api/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model: model.id, prompt, partial,
-                             batch: state[side].batch, side }),
+      body: JSON.stringify({ model: p.model.id, prompt, partial, batch: p.batch, side: sideOf(p) }),
     });
     const data = await parseJson(resp);
     if (!resp.ok || data.error) throw new Error(data.error || `HTTP ${resp.status}`);
-    state[side].raw = data.raw || "";
-    state[side].id = data.id || "";
-    renderResult(side, data);
-    setMeta(side, data.elapsed, data.truncated);
-    setTruncated(side, data.truncated);
+    p.raw = data.raw || "";
+    p.jobId = data.id || "";
+    renderResult(p, data);
+    setMeta(p, data.elapsed, data.truncated);
+    setTruncated(p, data.truncated);
   } catch (e) {
-    state[side].id = "";
-    showError(side, e.message);
+    p.jobId = "";
+    showError(p, e.message);
   } finally {
-    setLoading(side, false);
+    setLoading(p, false);
     updateVoteButtons();
   }
 }
 
-async function continueGen(side) {
-  const btn = document.getElementById(`continue-${side}`);
+// Retry a single competitor after a failure (keeps it in the same battle).
+async function regen(p) {
+  const prompt = p.prompt || promptInput.value.trim();
+  if (!prompt) { alert("Enter a prompt first."); return; }
+  if (!p.model) { alert(`Select a model for panel ${labelOf(p)} first.`); return; }
+  if (!p.batch) p.batch = (Date.now().toString(36) + Math.random().toString(36).slice(2, 6));
+  await generateOne(p, prompt);
+}
+
+async function continueGen(p) {
+  const btn = p.els.continueBtn;
   btn.disabled = true;
   btn.textContent = "Continuing…";
-  await generateOne(side, state[side].prompt, state[side].raw);
+  await generateOne(p, p.prompt, p.raw);
   btn.disabled = false;
   btn.textContent = "Continue +2k →";
 }
 
-// ── Voting (preference pairs) ──────────────────────────────────────────────
-function bothReady() {
-  return Boolean(state.a.id && state.b.id);
-}
-
-function resetVotes() {
-  voted = false;
-  ["a", "b"].forEach(s => {
-    state[s].id = "";
-    const btn = document.getElementById(`vote-${s}`);
-    btn.classList.remove("is-winner", "is-loser");
-    btn.textContent = "▲ This one's better";
-  });
-  updateVoteButtons();
-}
-
-function updateVoteButtons() {
-  const ready = bothReady() && !voted;
-  ["a", "b"].forEach(s => {
-    document.getElementById(`vote-${s}`).disabled = !ready;
-  });
-}
-
-async function vote(side) {
-  if (!bothReady() || voted) return;
-  voted = true;
-  updateVoteButtons();
-  markWinner(side);
-
-  const loser = side === "a" ? "b" : "a";
-  const payload = {
-    batch: state[side].batch,
-    prompt: state[side].prompt,
-    winner: side,
-    sides: {
-      a: { id: state.a.id, model: state.a.model?.id },
-      b: { id: state.b.id, model: state.b.model?.id },
-    },
-  };
-  try {
-    const resp = await fetch("/api/vote", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const data = await parseJson(resp);
-    if (!resp.ok || data.error) throw new Error(data.error || `HTTP ${resp.status}`);
-  } catch (e) {
-    // Roll back so the user can re-vote.
-    voted = false;
-    document.getElementById(`vote-${side}`).classList.remove("is-winner");
-    document.getElementById(`vote-${loser}`).classList.remove("is-loser");
-    updateVoteButtons();
-    alert("Vote failed: " + e.message);
-  }
-}
-
-function markWinner(side) {
-  const loser = side === "a" ? "b" : "a";
-  const win = document.getElementById(`vote-${side}`);
-  const lose = document.getElementById(`vote-${loser}`);
-  win.classList.add("is-winner");
-  win.classList.remove("is-loser");
-  win.textContent = "✓ Chosen";
-  lose.classList.add("is-loser");
-  lose.classList.remove("is-winner");
-  lose.textContent = "▲ This one's better";
-}
-
 function buildPage(html, css, js) {
-  // Escape closing script tags inside JS to prevent early close
   const safeJs = (js || "").replace(/<\/script>/gi, "<\\/script>");
   return `<!DOCTYPE html>
 <html>
@@ -888,90 +816,308 @@ ${js ? `<script>${safeJs}<\/script>` : ""}
 </html>`;
 }
 
-function renderResult(side, { html, css, js }) {
-  const frame = document.getElementById(`frame-${side}`);
-  document.getElementById(`empty-${side}`).hidden = true;
-  document.getElementById(`error-${side}`).hidden = true;
-  frame.hidden = false;
-  frame.srcdoc = buildPage(html, css, js);
+function renderResult(p, { html, css, js }) {
+  p.els.empty.hidden = true;
+  p.els.error.hidden = true;
+  p.els.frame.hidden = false;
+  p.els.frame.srcdoc = buildPage(html, css, js);
+}
+
+// ── Voting (preference pairs) ──────────────────────────────────────────────
+function readyPanels() { return panels.filter(p => p.jobId); }
+
+function resetVotes() {
+  voted = false;
+  panels.forEach(p => {
+    p.jobId = "";
+    p.els.voteBtn.classList.remove("is-winner", "is-loser");
+    p.els.voteBtn.textContent = "▲ This one's better";
+  });
+  updateVoteButtons();
+}
+
+function updateVoteButtons() {
+  const ready = !voted && readyPanels().length >= 2;
+  panels.forEach(p => { p.els.voteBtn.disabled = !(ready && p.jobId); });
+}
+
+async function vote(winner) {
+  const ready = readyPanels();
+  if (voted || ready.length < 2 || !winner.jobId) return;
+  voted = true;
+  updateVoteButtons();
+  markWinner(winner);
+  if (blind) revealAll();  // unmask the models once a choice is committed
+
+  const sides = {};
+  ready.forEach(p => { sides[sideOf(p)] = { id: p.jobId, model: p.model?.id }; });
+  const payload = { batch: winner.batch, prompt: winner.prompt, winner: sideOf(winner), sides };
+
+  try {
+    const resp = await fetch("/api/vote", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await parseJson(resp);
+    if (!resp.ok || data.error) throw new Error(data.error || `HTTP ${resp.status}`);
+  } catch (e) {
+    voted = false;
+    panels.forEach(p => p.els.voteBtn.classList.remove("is-winner", "is-loser"));
+    updateVoteButtons();
+    alert("Vote failed: " + e.message);
+  }
+}
+
+function markWinner(winner) {
+  readyPanels().forEach(p => {
+    const b = p.els.voteBtn;
+    if (p === winner) {
+      b.classList.add("is-winner"); b.classList.remove("is-loser");
+      b.textContent = "✓ Chosen";
+    } else {
+      b.classList.add("is-loser"); b.classList.remove("is-winner");
+      b.textContent = "▲ This one's better";
+    }
+  });
 }
 
 // ── UI state helpers ───────────────────────────────────────────────────────
-function setLoading(side, on, modelId) {
-  document.getElementById(`loading-${side}`).hidden = !on;
-  if (on && modelId) {
-    document.getElementById(`loading-model-${side}`).textContent = modelId;
+function setLoading(p, on) {
+  p.els.loading.hidden = !on;
+  if (on) {
+    p.els.loadingModel.textContent = (blind && !p.revealed) ? "🎭 Hidden model" : (p.model?.id || "");
   }
-  const frame = document.getElementById(`frame-${side}`);
-  if (!frame.hidden) frame.style.opacity = on ? "0.25" : "1";
-  if (on) startTimer(side); else stopTimer(side);
+  if (!p.els.frame.hidden) p.els.frame.style.opacity = on ? "0.25" : "1";
+  if (on) startTimer(p); else stopTimer(p);
 }
 
-function startTimer(side) {
-  stopTimer(side);
-  const el = document.getElementById(`loading-timer-${side}`);
+function startTimer(p) {
+  stopTimer(p);
+  const el = p.els.timer;
   const t0 = performance.now();
   el.textContent = "0.0s";
-  timers[side] = setInterval(() => {
+  p.timerHandle = setInterval(() => {
     el.textContent = ((performance.now() - t0) / 1000).toFixed(1) + "s";
   }, 100);
 }
 
-function stopTimer(side) {
-  if (timers[side]) { clearInterval(timers[side]); timers[side] = null; }
+function stopTimer(p) {
+  if (p.timerHandle) { clearInterval(p.timerHandle); p.timerHandle = null; }
 }
 
-function setMeta(side, elapsed, truncated) {
-  const el = document.getElementById(`meta-${side}`);
+function setMeta(p, elapsed, truncated) {
+  const el = p.els.meta;
   if (elapsed == null) { el.textContent = ""; return; }
   el.textContent = (truncated ? "⚠ " : "✓ ") + elapsed + "s";
   el.classList.toggle("is-truncated", !!truncated);
 }
 
-function setTruncated(side, on) {
-  document.getElementById(`wrap-${side}`).classList.toggle("is-truncated", !!on);
-  document.getElementById(`trunc-${side}`).hidden = !on;
+function setTruncated(p, on) {
+  p.els.wrap.classList.toggle("is-truncated", !!on);
+  p.els.trunc.hidden = !on;
 }
 
-function clearResult(side) {
-  document.getElementById(`error-${side}`).hidden = true;
+function clearError(p) { p.els.error.hidden = true; }
+
+function showError(p, msg) {
+  p.els.frame.hidden = true;
+  p.els.empty.hidden = true;
+  p.els.error.hidden = false;
+  p.els.errorMsg.textContent = msg;
 }
 
-function showError(side, msg) {
-  document.getElementById(`frame-${side}`).hidden = true;
-  document.getElementById(`empty-${side}`).hidden = true;
-  const err = document.getElementById(`error-${side}`);
-  err.hidden = false;
-  document.getElementById(`error-msg-${side}`).textContent = msg;
+// ── Blind mode ─────────────────────────────────────────────────────────────
+// In blind mode the model pickers are hidden and each panel is assigned a
+// random distinct favorite. Identities stay hidden until the user votes.
+function applyBlindUI() {
+  panels.forEach(p => {
+    const hide = blind && !p.revealed;
+    p.els.input.disabled = hide;
+    p.els.input.classList.toggle("blinded", hide);
+    if (hide) {
+      p.els.input.value = "🎭 Hidden model";
+    } else {
+      p.els.input.value = p.model ? p.model.id : "";
+    }
+  });
+}
+
+function toggleBlind() {
+  if (!blind) {
+    if (favorites.length < 2) {
+      alert("Add at least 2 favorite models in Settings (⚙) to use Blind mode.");
+      return;
+    }
+    blind = true;
+  } else {
+    blind = false;
+  }
+  panels.forEach(p => { p.revealed = false; });
+  blindBtn.classList.toggle("on", blind);
+  blindBtn.textContent = blind ? "🎭 Blind: On" : "🎭 Blind: Off";
+  applyBlindUI();
+}
+
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function modelObj(id) { return allModels.find(m => m.id === id) || { id, name: id }; }
+
+// Assign random distinct favorites to every panel (called before a blind run).
+function assignBlindModels() {
+  const pool = shuffle(favorites);
+  panels.forEach((p, i) => { p.model = modelObj(pool[i]); p.revealed = false; });
+  applyBlindUI();
+}
+
+function revealAll() {
+  panels.forEach(p => { p.revealed = true; });
+  applyBlindUI();
+}
+
+// ── Settings ───────────────────────────────────────────────────────────────
+async function loadSettings() {
+  try {
+    const resp = await fetch("/api/settings");
+    const s = await parseJson(resp);
+    favorites = Array.isArray(s.favorites) ? s.favorites : [];
+    tokenLimit = s.initial_token_limit ?? 8192;
+  } catch (e) {
+    console.error("Failed to load settings:", e);
+  }
+}
+
+function openSettings() {
+  document.getElementById("set-token").value = tokenLimit;
+  document.getElementById("settings-status").textContent = "";
+  renderFavList();
+  renderFavOptions("");
+  document.getElementById("settings-overlay").hidden = false;
+}
+
+function closeSettings() {
+  document.getElementById("settings-overlay").hidden = true;
+  document.getElementById("fav-drop").classList.remove("open");
+}
+
+function renderFavList() {
+  const list = document.getElementById("fav-list");
+  if (!favorites.length) {
+    list.innerHTML = `<div class="fav-empty">No favorites yet.</div>`;
+    return;
+  }
+  list.innerHTML = favorites.map(id =>
+    `<div class="fav-chip"><span class="fav-chip-id" title="${escHtml(id)}">${escHtml(id)}</span>` +
+    `<button class="fav-chip-remove" data-id="${escHtml(id)}" title="Remove">×</button></div>`
+  ).join("");
+  list.querySelectorAll(".fav-chip-remove").forEach(btn => {
+    btn.addEventListener("click", () => {
+      favorites = favorites.filter(x => x !== btn.dataset.id);
+      renderFavList();
+    });
+  });
+}
+
+function renderFavOptions(query) {
+  const drop = document.getElementById("fav-drop");
+  const q = (query || "").toLowerCase().trim();
+  const filtered = allModels.filter(m =>
+    !favorites.includes(m.id) &&
+    (!q || m.id.toLowerCase().includes(q) || m.name.toLowerCase().includes(q))
+  ).slice(0, 120);
+
+  if (!filtered.length) {
+    drop.innerHTML = `<div class="picker-empty">No matches</div>`;
+    return;
+  }
+  drop.innerHTML = filtered.map(m =>
+    `<div class="picker-option" data-id="${escHtml(m.id)}" title="${escHtml(m.id)}">${escHtml(m.name)}</div>`
+  ).join("");
+  drop.querySelectorAll(".picker-option").forEach(el => {
+    el.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      if (!favorites.includes(el.dataset.id)) favorites.push(el.dataset.id);
+      const search = document.getElementById("fav-search");
+      search.value = "";
+      renderFavList();
+      renderFavOptions("");
+    });
+  });
+}
+
+async function saveSettings() {
+  const n = parseInt(document.getElementById("set-token").value, 10);
+  const payload = {
+    initial_token_limit: Number.isFinite(n) ? n : tokenLimit,
+    favorites,
+  };
+  const status = document.getElementById("settings-status");
+  try {
+    const resp = await fetch("/api/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const s = await parseJson(resp);
+    if (!resp.ok || s.error) throw new Error(s.error || `HTTP ${resp.status}`);
+    favorites = s.favorites;
+    tokenLimit = s.initial_token_limit;
+    document.getElementById("set-token").value = tokenLimit;
+    status.textContent = "Saved ✓";
+    setTimeout(() => { status.textContent = ""; }, 2000);
+  } catch (e) {
+    status.style.color = "var(--error)";
+    status.textContent = "Save failed: " + e.message;
+  }
 }
 
 // ── Init ───────────────────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
-  initPicker("a");
-  initPicker("b");
+  arena       = document.getElementById("arena");
+  promptInput = document.getElementById("prompt-input");
+  genBtn      = document.getElementById("btn-generate");
+  promptBtn   = document.getElementById("btn-gen-prompt");
+  addBtn      = document.getElementById("btn-add");
+  blindBtn    = document.getElementById("btn-blind");
 
-  document.getElementById("btn-gen-prompt")
-    .addEventListener("click", generatePrompt);
-  document.getElementById("btn-generate")
-    .addEventListener("click", generateBoth);
-  document.getElementById("continue-a")
-    .addEventListener("click", () => continueGen("a"));
-  document.getElementById("continue-b")
-    .addEventListener("click", () => continueGen("b"));
-  document.getElementById("vote-a")
-    .addEventListener("click", () => vote("a"));
-  document.getElementById("vote-b")
-    .addEventListener("click", () => vote("b"));
+  DEFAULT_MODELS.forEach(id => createPanel(id));
 
-  // Cmd/Ctrl+Enter to generate from textarea
-  document.getElementById("prompt-input").addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-      e.preventDefault();
-      generateBoth();
-    }
+  promptBtn.addEventListener("click", generatePrompt);
+  genBtn.addEventListener("click", generateAll);
+  addBtn.addEventListener("click", () => { createPanel(null); applyBlindUI(); });
+  blindBtn.addEventListener("click", toggleBlind);
+
+  // Settings modal
+  document.getElementById("btn-settings").addEventListener("click", openSettings);
+  document.getElementById("settings-close").addEventListener("click", closeSettings);
+  document.getElementById("settings-save").addEventListener("click", saveSettings);
+  document.getElementById("settings-overlay").addEventListener("click", (e) => {
+    if (e.target.id === "settings-overlay") closeSettings();
+  });
+  const favSearch = document.getElementById("fav-search");
+  const favDrop = document.getElementById("fav-drop");
+  favSearch.addEventListener("focus", () => { renderFavOptions(favSearch.value); favDrop.classList.add("open"); });
+  favSearch.addEventListener("input", () => { renderFavOptions(favSearch.value); favDrop.classList.add("open"); });
+  favSearch.addEventListener("blur", () => setTimeout(() => favDrop.classList.remove("open"), 160));
+
+  // Close any open dropdown when clicking outside its panel.
+  document.addEventListener("click", (e) => {
+    panels.forEach(p => { if (!p.els.root.contains(e.target)) p.els.drop.classList.remove("open"); });
+  });
+
+  promptInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); generateAll(); }
   });
 
   loadModels();
+  loadSettings();
 });
 </script>
 </body>
