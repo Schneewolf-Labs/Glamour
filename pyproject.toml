@@ -8,6 +8,7 @@ dependencies = [
     "playwright>=1.44",
     "pillow>=10.0",
     "numpy>=1.26",
+    "huggingface-hub>=0.24",
 ]
 
 [build-system]

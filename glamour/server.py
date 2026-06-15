@@ -17,7 +17,7 @@ import urllib.request
 import uuid
 from collections import deque
 from datetime import datetime, timezone
-from threading import Lock
+from threading import Lock, Thread
 
 from flask import Flask, Response, jsonify, request, send_from_directory
 
@@ -35,7 +35,9 @@ STATIC = str(ROOT / "static")
 OUT = ROOT / "output"
 JOBS_PATH = OUT / "jobs.jsonl"
 VOTES_PATH = OUT / "votes.jsonl"
+DATASET_PATH = OUT / "dataset.jsonl"
 SETTINGS_PATH = OUT / "settings.json"
+CURATE_SESSION_PATH = OUT / "curate_session.json"
 app = Flask(__name__)
 
 # --------------------------------------------------------------------------- #
@@ -46,6 +48,7 @@ DEFAULT_SETTINGS = {
     "request_timeout": 120,   # seconds to wait for an OpenRouter response
     "temperature": 0.9,       # sampling temperature for design generation
     "prompt_model": "~anthropic/claude-sonnet-latest",  # model that writes briefs
+    "hf_repo": "",            # HuggingFace dataset repo for curate uploads
     "favorites": [],
 }
 _settings_lock = Lock()
@@ -91,6 +94,20 @@ def _append_vote(record: dict) -> None:
         OUT.mkdir(exist_ok=True)
         with open(VOTES_PATH, "a") as f:
             f.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+
+def _append_dataset(record: dict) -> None:
+    with _jobs_lock:
+        OUT.mkdir(exist_ok=True)
+        with open(DATASET_PATH, "a") as f:
+            f.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+
+def _dataset_count() -> int:
+    if not DATASET_PATH.exists():
+        return 0
+    with _jobs_lock, open(DATASET_PATH) as f:
+        return sum(1 for line in f if line.strip())
 
 
 def _read_jobs() -> list[dict]:
@@ -311,6 +328,8 @@ def api_set_settings():
         pm = str(body["prompt_model"]).strip()
         if pm:
             cur["prompt_model"] = pm
+    if "hf_repo" in body:
+        cur["hf_repo"] = str(body["hf_repo"]).strip()
     if "favorites" in body:
         if not isinstance(body["favorites"], list):
             return jsonify({"error": "favorites must be a list"}), 400
@@ -329,8 +348,8 @@ def api_set_settings():
     return jsonify(saved)
 
 
-@app.route("/api/generate-prompt", methods=["POST"])
-def api_generate_prompt():
+def _generate_brief() -> str:
+    """Generate one seeded design brief and record it for anti-repetition."""
     page = random.choice(PAGE_TYPES)
     aesthetic = random.choice(AESTHETICS)
     spark = random.choice(SPARKS)
@@ -345,19 +364,22 @@ def api_generate_prompt():
         avoid = "\n".join(f"- {p}" for p in _recent_prompts)
         user += (f"\n\nDo NOT reuse the subject, brand, or mood of these recent "
                  f"briefs:\n{avoid}")
-
     s = _load_settings()
-    log.info("generate-prompt seeds: page=%r aesthetic=%r spark=%r", page, aesthetic, spark)
+    log.info("brief seeds: page=%r aesthetic=%r spark=%r", page, aesthetic, spark)
+    resp = _client.chat(
+        [system_message(PROMPT_SYSTEM), user_message(user)],
+        model=s["prompt_model"], temperature=1.0, max_tokens=200,
+    )
+    prompt = resp.text.strip()
+    _recent_prompts.append(prompt[:100])
+    return prompt
+
+
+@app.route("/api/generate-prompt", methods=["POST"])
+def api_generate_prompt():
     try:
-        resp = _client.chat(
-            [system_message(PROMPT_SYSTEM), user_message(user)],
-            model=s["prompt_model"],
-            temperature=1.0,
-            max_tokens=200,
-        )
-        prompt = resp.text.strip()
-        _recent_prompts.append(prompt[:100])
-        log.info("generate-prompt OK [%s] -> %r", resp.model, prompt)
+        prompt = _generate_brief()
+        log.info("generate-prompt OK -> %r", prompt)
         return jsonify({"prompt": prompt})
     except OpenRouterError as e:
         log.error("generate-prompt failed: %s", e)
@@ -385,6 +407,7 @@ def api_generate():
     partial = body.get("partial") or ""  # set when continuing a truncated design
     batch = (body.get("batch") or "").strip()  # groups the A/B pair of a battle
     side = (body.get("side") or "").strip()
+    store = body.get("store", True)  # curate sets False to skip the arena jobs log
     if not model:
         return jsonify({"error": "model is required"}), 400
     if not prompt:
@@ -451,18 +474,19 @@ def api_generate():
              len(blocks["js"]), truncated)
 
     job_id = uuid.uuid4().hex[:12]
-    _append_job({
-        "id": job_id,
-        "batch": batch or job_id,
-        "side": side,
-        "ts": time.time(),
-        "iso": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "model": model,
-        "prompt": prompt,
-        "elapsed": dt,
-        "truncated": truncated,
-        **blocks,
-    })
+    if store:
+        _append_job({
+            "id": job_id,
+            "batch": batch or job_id,
+            "side": side,
+            "ts": time.time(),
+            "iso": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "model": model,
+            "prompt": prompt,
+            "elapsed": dt,
+            "truncated": truncated,
+            **blocks,
+        })
 
     return jsonify({**blocks, "id": job_id, "raw": raw,
                     "truncated": truncated, "elapsed": dt})
@@ -538,6 +562,327 @@ def job_render(job_id: str):
             doc = _render_doc(r.get("html", ""), r.get("css", ""), r.get("js", ""))
             return Response(doc, mimetype="text/html")
     return Response("job not found", status=404)
+
+
+# --------------------------------------------------------------------------- #
+# curate — queue auto-prompts, one model generates, approve/reject → dataset
+# --------------------------------------------------------------------------- #
+@app.route("/curate")
+def curate():
+    return send_from_directory(STATIC, "curate.html")
+
+
+# Server-owned curate session: the queue + generated-but-unreviewed designs live
+# on disk (output/curate_session.json) and generation runs in background threads,
+# so closing the tab or restarting the server resumes exactly where you left off.
+_curate_lock = Lock()
+_curate: dict = {"active": False, "models": [], "parallel": 3,
+                 "queue": [], "idx": 0, "approved": 0, "results": {},
+                 "target": 0, "queuing": False}
+_curate_resumed = False
+
+
+def _curate_model_for(i: int) -> str:
+    """Round-robin the model mix across designs. Caller holds _curate_lock."""
+    ms = _curate.get("models") or []
+    return ms[i % len(ms)] if ms else ""
+
+
+def _save_curate_locked() -> None:
+    OUT.mkdir(exist_ok=True)
+    CURATE_SESSION_PATH.write_text(json.dumps(_curate))
+
+
+def _load_curate() -> None:
+    global _curate
+    if not CURATE_SESSION_PATH.exists():
+        return
+    try:
+        data = json.loads(CURATE_SESSION_PATH.read_text())
+    except (json.JSONDecodeError, OSError):
+        return
+    base = {"active": False, "models": [], "parallel": 3,
+            "queue": [], "idx": 0, "approved": 0, "results": {},
+            "target": 0, "queuing": False}
+    base.update({k: data[k] for k in base if k in data})
+    # Back-compat: older sessions stored a single "model".
+    if not base["models"] and data.get("model"):
+        base["models"] = [data["model"]]
+    # Drop generations that were interrupted mid-flight; they'll regenerate.
+    base["results"] = {k: v for k, v in base["results"].items()
+                       if v.get("status") in ("done", "error")}
+    _curate = base
+
+
+def _generate_site(model: str, prompt: str) -> dict:
+    """One-shot design generation for curate. Returns blocks + truncated + id."""
+    s = _load_settings()
+    client = OpenRouter(timeout=float(s["request_timeout"]))
+    resp = client.chat([system_message(DESIGN_SYSTEM), user_message(prompt)],
+                       model=model, max_tokens=s["initial_token_limit"],
+                       temperature=float(s["temperature"]))
+    blocks = _extract_blocks(resp.text)
+    if not blocks["html"].strip() and not blocks["css"].strip():
+        raise OpenRouterError("model returned no html/css blocks")
+    return {**blocks, "truncated": resp.finish_reason == "length",
+            "id": uuid.uuid4().hex[:12]}
+
+
+def _curate_pump() -> None:
+    """Keep up to `parallel` generations in flight, working ahead of `idx`."""
+    to_start = []
+    with _curate_lock:
+        if not _curate["active"]:
+            return
+        n = _curate["parallel"]
+        q, res = _curate["queue"], _curate["results"]
+        inflight = sum(1 for v in res.values() if v.get("status") == "pending")
+        i = _curate["idx"]
+        while inflight + len(to_start) < n and i < len(q):
+            if str(i) not in res:
+                res[str(i)] = {"status": "pending"}
+                to_start.append(i)
+            i += 1
+        if to_start:
+            _save_curate_locked()
+    for i in to_start:
+        Thread(target=_curate_worker, args=(i,), daemon=True).start()
+
+
+def _curate_worker(i: int) -> None:
+    key = str(i)
+    with _curate_lock:
+        if not _curate["active"] or _curate["results"].get(key, {}).get("status") != "pending":
+            return
+        model, prompt = _curate_model_for(i), _curate["queue"][i]
+    try:
+        site = _generate_site(model, prompt)
+        result = {"status": "done", "data": {"prompt": prompt, "model": model, **site}}
+        log.info("curate: generated #%d [%s]", i, model)
+    except Exception as e:
+        result = {"status": "error", "error": str(e)}
+        log.warning("curate: gen #%d failed: %s", i, e)
+    with _curate_lock:
+        if _curate["active"] and key in _curate["results"]:
+            _curate["results"][key] = result
+            _save_curate_locked()
+    _curate_pump()
+
+
+def _curate_producer() -> None:
+    """Generate briefs in the background, appending to the queue as they land so
+    review can start on the first one without waiting for the whole batch."""
+    while True:
+        with _curate_lock:
+            if not _curate["active"] or not _curate["queuing"]:
+                return
+            if len(_curate["queue"]) >= _curate["target"]:
+                _curate["queuing"] = False
+                _save_curate_locked()
+                return
+        try:
+            brief = _generate_brief()
+        except Exception as e:
+            log.warning("curate: brief generation failed, stopping queue: %s", e)
+            with _curate_lock:
+                _curate["queuing"] = False
+                _save_curate_locked()
+            return
+        with _curate_lock:
+            if not _curate["active"]:
+                return
+            _curate["queue"].append(brief)
+            if len(_curate["queue"]) >= _curate["target"]:
+                _curate["queuing"] = False
+            _save_curate_locked()
+        _curate_pump()  # designs can start the moment a prompt exists
+
+
+def _session_view() -> dict:
+    with _curate_lock:
+        q, idx, res = _curate["queue"], _curate["idx"], _curate["results"]
+        statuses = [res.get(str(i), {}).get("status", "todo") for i in range(len(q))]
+        ready_ahead = sum(1 for i in range(idx + 1, len(q))
+                          if res.get(str(i), {}).get("status") == "done")
+        current = None
+        if idx < len(q):
+            cur = res.get(str(idx))
+            if not cur:
+                current = {"status": "todo", "prompt": q[idx], "model": _curate_model_for(idx)}
+            elif cur["status"] == "done":
+                current = {"status": "done", "prompt": q[idx], **cur["data"]}
+            elif cur["status"] == "error":
+                current = {"status": "error", "prompt": q[idx],
+                           "model": _curate_model_for(idx), "error": cur.get("error")}
+            else:
+                current = {"status": "pending", "prompt": q[idx], "model": _curate_model_for(idx)}
+        queuing = _curate.get("queuing", False)
+        return {
+            "active": _curate["active"], "models": _curate.get("models", []),
+            "parallel": _curate["parallel"], "total": len(q), "idx": idx,
+            "approved": _curate["approved"], "statuses": statuses,
+            "ready_ahead": ready_ahead, "queuing": queuing,
+            "target": _curate.get("target", len(q)),
+            "done": _curate["active"] and not queuing and idx >= len(q),
+            "current": current,
+        }
+
+
+def _maybe_resume() -> None:
+    """Resume background generation after a server restart, lazily on first hit."""
+    global _curate_resumed
+    if _curate_resumed:
+        return
+    _curate_resumed = True
+    if _curate.get("active"):
+        log.info("curate: resuming session (idx=%d/%d)", _curate["idx"], len(_curate["queue"]))
+        _curate_pump()
+        if _curate.get("queuing") and len(_curate["queue"]) < _curate.get("target", 0):
+            Thread(target=_curate_producer, daemon=True).start()
+
+
+@app.route("/api/curate/start", methods=["POST"])
+def api_curate_start():
+    body = request.get_json(force=True)
+    raw = body.get("models")
+    if isinstance(raw, list):
+        models = [str(m).strip() for m in raw if str(m).strip()]
+    else:
+        single = (body.get("model") or "").strip()
+        models = [single] if single else []
+    if not models:
+        return jsonify({"error": "at least one model is required"}), 400
+    try:
+        count = max(1, min(int(body.get("count", 10)), 200))
+        parallel = max(1, min(int(body.get("parallel", 3)), 8))
+    except (ValueError, TypeError):
+        return jsonify({"error": "count/parallel must be integers"}), 400
+
+    with _curate_lock:
+        _curate.update(active=True, models=models, parallel=parallel,
+                       queue=[], idx=0, approved=0, results={},
+                       target=count, queuing=True)
+        _save_curate_locked()
+    log.info("curate: started target=%d parallel=%d models=%s", count, parallel, models)
+    # Briefs generate in the background; returns instantly so review can begin
+    # the moment the first design is ready.
+    Thread(target=_curate_producer, daemon=True).start()
+    return jsonify(_session_view())
+
+
+@app.route("/api/curate/session")
+def api_curate_session():
+    _maybe_resume()
+    return jsonify(_session_view())
+
+
+@app.route("/api/curate/approve", methods=["POST"])
+def api_curate_approve():
+    with _curate_lock:
+        idx = _curate["idx"]
+        cur = _curate["results"].get(str(idx))
+        if not cur or cur.get("status") != "done":
+            return jsonify({"error": "current design is not ready"}), 400
+        d = cur["data"]
+    rec = {
+        "id": d.get("id") or uuid.uuid4().hex[:12],
+        "ts": time.time(),
+        "iso": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "prompt": d["prompt"], "model": d.get("model", ""),
+        "html": d.get("html", ""), "css": d.get("css", ""), "js": d.get("js", ""),
+    }
+    _append_dataset(rec)
+    count = _dataset_count()
+    with _curate_lock:
+        _curate["approved"] += 1
+        _curate["results"].pop(str(_curate["idx"]), None)
+        _curate["idx"] += 1
+        _save_curate_locked()
+    log.info("curate: approved -> dataset (%d total)", count)
+    _curate_pump()
+    view = _session_view()
+    view["dataset_count"] = count
+    return jsonify(view)
+
+
+@app.route("/api/curate/reject", methods=["POST"])
+def api_curate_reject():
+    with _curate_lock:
+        _curate["results"].pop(str(_curate["idx"]), None)
+        _curate["idx"] += 1
+        _save_curate_locked()
+    _curate_pump()
+    return jsonify(_session_view())
+
+
+@app.route("/api/curate/clear", methods=["POST"])
+def api_curate_clear():
+    with _curate_lock:
+        _curate.update(active=False, queue=[], results={}, idx=0, approved=0)
+        _save_curate_locked()
+    return jsonify(_session_view())
+
+
+@app.route("/api/curate/stats")
+def api_curate_stats():
+    return jsonify({"count": _dataset_count(),
+                    "hf_repo": _load_settings()["hf_repo"]})
+
+
+@app.route("/dataset.jsonl")
+def dataset_download():
+    if not DATASET_PATH.exists():
+        return Response("no dataset yet", status=404)
+    return send_from_directory(str(OUT), "dataset.jsonl",
+                               as_attachment=True, mimetype="application/x-ndjson")
+
+
+@app.route("/api/curate/upload", methods=["POST"])
+def api_curate_upload():
+    """Push the curated dataset.jsonl to a HuggingFace dataset repo.
+    Token comes from $HF_TOKEN (loadable via .env)."""
+    body = request.get_json(force=True)
+    repo = (body.get("repo") or _load_settings()["hf_repo"]).strip()
+    token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN")
+    if not repo:
+        return jsonify({"error": "no HuggingFace repo specified (owner/name)"}), 400
+    if not token:
+        return jsonify({"error": "no HF token: set HF_TOKEN in your .env"}), 400
+    if _dataset_count() == 0:
+        return jsonify({"error": "dataset is empty — approve some designs first"}), 400
+
+    # Remember the repo for next time.
+    s = _load_settings()
+    s["hf_repo"] = repo
+    _save_settings(s)
+
+    try:
+        from huggingface_hub import HfApi
+    except ImportError:
+        return jsonify({"error": "huggingface_hub not installed (uv sync)"}), 500
+
+    try:
+        api = HfApi(token=token)
+        api.create_repo(repo, repo_type="dataset", exist_ok=True)
+        api.upload_file(
+            path_or_fileobj=str(DATASET_PATH),
+            path_in_repo="data/dataset.jsonl",
+            repo_id=repo,
+            repo_type="dataset",
+        )
+    except Exception as e:
+        log.exception("HF upload failed")
+        return jsonify({"error": f"upload failed: {e}"}), 502
+
+    url = f"https://huggingface.co/datasets/{repo}"
+    n = _dataset_count()
+    log.info("curate: uploaded %d rows to %s", n, repo)
+    return jsonify({"ok": True, "url": url, "count": n})
+
+
+# Restore any in-progress curate session from disk (generation resumes lazily
+# on the first /api/curate/session request, so the reloader doesn't double-run it).
+_load_curate()
 
 
 # --------------------------------------------------------------------------- #

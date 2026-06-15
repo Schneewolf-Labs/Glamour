@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Glamour — Curate</title>
+<style>
+:root {
+  --bg: #0c0c11; --panel: #12121a; --surface: #1a1a27; --border: #22223a;
+  --accent: #818cf8; --accent-lo: #4f46e5; --accent-hi: #a5b4fc;
+  --text: #e2e8f0; --muted: #64748b; --error: #f87171; --win: #34d399;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  height: 100%; background: var(--bg); color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 13px; line-height: 1.5; overflow: hidden;
+}
+body { display: grid; grid-template-rows: 44px auto 1fr; }
+
+header {
+  background: var(--panel); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; padding: 0 16px; gap: 10px; user-select: none;
+}
+.logo { display: flex; align-items: center; gap: 8px; }
+.logo-mark {
+  width: 22px; height: 22px;
+  background: linear-gradient(135deg, var(--accent-lo), var(--accent-hi));
+  border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px;
+}
+.logo-name { font-size: 14px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.logo-tag { font-size: 11px; color: var(--muted); }
+.header-link {
+  margin-left: auto; color: var(--muted); text-decoration: none;
+  font-size: 12px; font-weight: 500; padding: 5px 10px;
+  border: 1px solid var(--border); border-radius: 6px;
+}
+.header-link:hover { color: var(--text); border-color: var(--accent); }
+
+/* ── Setup bar ── */
+.setup {
+  background: var(--panel); border-bottom: 1px solid var(--border);
+  padding: 10px 16px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.setup .sep { flex: 1; }
+.setup label { font-size: 11px; color: var(--muted); white-space: nowrap; }
+
+.picker { position: relative; width: 280px; }
+.picker-input, .num-input, .repo-input {
+  padding: 7px 10px; background: var(--bg); color: var(--text);
+  border: 1px solid var(--border); border-radius: 6px;
+  font-size: 12px; font-family: inherit; outline: none;
+}
+.picker-input { width: 100%; cursor: pointer; }
+.picker-input:focus, .num-input:focus, .repo-input:focus { border-color: var(--accent); }
+.num-input { width: 70px; }
+.repo-input { width: 220px; }
+.picker-drop {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  max-height: 300px; overflow-y: auto; z-index: 100; display: none;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+}
+.picker-drop.open { display: block; }
+.picker-option {
+  padding: 7px 12px; cursor: pointer; color: var(--muted); font-size: 12px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.picker-option:hover { background: rgba(129,140,248,0.08); color: var(--text); }
+.picker-option.is-selected { color: var(--accent); }
+.picker-empty { padding: 12px; color: var(--muted); text-align: center; font-size: 12px; }
+
+button {
+  padding: 0 16px; height: 34px; border: 1px solid var(--border); border-radius: 6px;
+  font-size: 12px; font-weight: 500; font-family: inherit; cursor: pointer;
+  background: var(--surface); color: var(--text);
+  transition: border-color 0.15s, background 0.15s, opacity 0.15s; white-space: nowrap;
+}
+button:hover:not(:disabled) { background: var(--border); }
+button.primary { background: var(--accent-lo); border-color: var(--accent-lo); color: #fff; }
+button.primary:hover:not(:disabled) { background: var(--accent); border-color: var(--accent); }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.stat { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.stat b { color: var(--win); font-weight: 700; }
+
+.chips { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+.chip {
+  display: flex; align-items: center; gap: 5px;
+  padding: 4px 6px 4px 9px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 5px;
+  font-size: 11px; color: var(--text); max-width: 220px;
+}
+.chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip button {
+  height: auto; width: 16px; padding: 0; font-size: 12px; line-height: 1;
+  background: transparent; border: none; color: var(--muted);
+}
+.chip button:hover { color: var(--error); background: transparent; }
+
+.model-badge {
+  font-size: 11px; color: var(--accent); white-space: nowrap;
+  padding-top: 1px; max-width: 200px; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* ── Review area ── */
+.review { display: flex; flex-direction: column; min-height: 0; }
+
+.review-head {
+  padding: 10px 16px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: flex-start; gap: 12px;
+}
+.progress {
+  font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums;
+  white-space: nowrap; padding-top: 1px;
+}
+.cur-prompt {
+  flex: 1; font-size: 12px; color: var(--text);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.trunc-badge { color: var(--error); font-size: 11px; font-weight: 600; white-space: nowrap; }
+
+.stage { flex: 1; position: relative; min-height: 0; background: #fff; }
+iframe { width: 100%; height: 100%; border: none; display: block; }
+
+.overlay {
+  position: absolute; inset: 0; background: var(--bg);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 14px; color: var(--muted); z-index: 5; text-align: center; padding: 32px;
+}
+.overlay.loading { background: rgba(12,12,17,0.9); }
+.spinner {
+  width: 34px; height: 34px; border: 2px solid var(--border);
+  border-top-color: var(--accent); border-radius: 50%; animation: spin 0.75s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.overlay .big { font-size: 16px; color: var(--text); }
+.overlay .err { color: var(--error); font-size: 12px; max-width: 480px; }
+
+.actions {
+  display: flex; gap: 10px; padding: 12px 16px;
+  border-top: 1px solid var(--border); background: var(--panel);
+}
+.btn-reject, .btn-approve { flex: 1; height: 44px; font-size: 14px; font-weight: 700; }
+.btn-reject { background: var(--surface); border-color: var(--border); }
+.btn-reject:hover:not(:disabled) { border-color: var(--error); color: var(--error); }
+.btn-approve { background: var(--win); border-color: var(--win); color: #04120b; }
+.btn-approve:hover:not(:disabled) { background: #2cc088; border-color: #2cc088; }
+.kbd { opacity: 0.6; font-weight: 500; font-size: 11px; }
+
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-mark">✦</div>
+    <span class="logo-name">Glamour</span>
+    <span class="logo-tag">Curate</span>
+  </div>
+  <a class="header-link" href="/">← Arena</a>
+</header>
+
+<div class="setup">
+  <label>Models</label>
+  <div class="picker" id="picker">
+    <input class="picker-input" id="model-input" placeholder="Add models to the mix…" autocomplete="off" spellcheck="false">
+    <div class="picker-drop" id="model-drop"></div>
+  </div>
+  <div class="chips" id="model-chips"></div>
+  <label>Prompts</label>
+  <input class="num-input" id="count" type="number" min="1" max="200" value="10">
+  <label title="How many designs to generate ahead of you in parallel">Parallel</label>
+  <input class="num-input" id="parallel" type="number" min="1" max="8" value="3">
+  <button class="primary" id="start">Queue &amp; Start</button>
+  <div class="sep"></div>
+  <span class="stat">Dataset: <b id="ds-count">0</b></span>
+  <button id="download">Download JSONL</button>
+  <input class="repo-input" id="repo" placeholder="hf-user/dataset-name" autocomplete="off">
+  <button id="upload">↑ Push to HF</button>
+</div>
+
+<div class="review">
+  <div class="review-head">
+    <span class="progress" id="progress"></span>
+    <span class="cur-prompt" id="cur-prompt"></span>
+    <span class="model-badge" id="cur-model"></span>
+    <span class="trunc-badge" id="trunc" hidden>⚠ truncated</span>
+  </div>
+  <div class="stage" id="stage">
+    <div class="overlay" id="overlay">
+      <div class="big">Pick a model, set a count, and hit Queue &amp; Start.</div>
+      <div>Auto-generated briefs → one model designs each → you approve or reject.</div>
+    </div>
+    <iframe id="frame" sandbox="allow-scripts" hidden></iframe>
+  </div>
+  <div class="actions">
+    <button class="btn-reject" id="reject" disabled>✗ Reject <span class="kbd">(R)</span></button>
+    <button class="btn-approve" id="approve" disabled>✓ Approve <span class="kbd">(A)</span></button>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+async function parseJson(resp) {
+  const text = await resp.text();
+  try { return JSON.parse(text); }
+  catch (e) {
+    const s = text.trim().slice(0, 120).replace(/\s+/g, " ");
+    throw new Error(`Server error (HTTP ${resp.status}): ${s || "non-JSON"}`);
+  }
+}
+function escHtml(s) {
+  return String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+// The session (queue + generated designs) lives server-side; this page is a
+// thin view that polls /api/curate/session and renders whatever's current.
+let allModels = [];
+let mix = ["~anthropic/claude-opus-latest", "google/gemini-2.5-flash"];  // model mix
+let busy = false;          // an approve/reject/start request is in flight
+let canApprove = false, canReject = false;
+let pollTimer = null;
+
+const el = (id) => document.getElementById(id);
+
+// ── Model mix picker (multi-select) ──
+function initPicker() {
+  const input = el("model-input"), drop = el("model-drop");
+  input.addEventListener("focus", () => { renderOptions(input.value); drop.classList.add("open"); });
+  input.addEventListener("input", () => { renderOptions(input.value); drop.classList.add("open"); });
+  input.addEventListener("blur", () => setTimeout(() => { drop.classList.remove("open"); input.value = ""; }, 160));
+  document.addEventListener("click", (e) => { if (!el("picker").contains(e.target)) drop.classList.remove("open"); });
+  renderChips();
+}
+function renderOptions(q) {
+  const drop = el("model-drop");
+  q = (q || "").toLowerCase().trim();
+  const list = (q ? allModels.filter(m => m.id.toLowerCase().includes(q) || m.name.toLowerCase().includes(q)) : allModels)
+    .filter(m => !mix.includes(m.id)).slice(0, 120);
+  if (!list.length) { drop.innerHTML = `<div class="picker-empty">No matches</div>`; return; }
+  drop.innerHTML = list.map(m =>
+    `<div class="picker-option" data-id="${escHtml(m.id)}" title="${escHtml(m.id)}">${escHtml(m.name)}</div>`
+  ).join("");
+  drop.querySelectorAll(".picker-option").forEach(o => {
+    o.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      if (!mix.includes(o.dataset.id)) mix.push(o.dataset.id);
+      el("model-input").value = "";
+      el("model-drop").classList.remove("open");
+      renderChips();
+    });
+  });
+}
+function renderChips() {
+  el("model-chips").innerHTML = mix.map(id =>
+    `<div class="chip"><span title="${escHtml(id)}">${escHtml(id)}</span>` +
+    `<button data-id="${escHtml(id)}" title="Remove">×</button></div>`
+  ).join("");
+  el("model-chips").querySelectorAll("button").forEach(b => {
+    b.addEventListener("click", () => { mix = mix.filter(x => x !== b.dataset.id); renderChips(); });
+  });
+}
+
+async function loadModels() {
+  try { const r = await fetch("/api/models"); allModels = await parseJson(r); if (allModels.error) throw new Error(allModels.error); }
+  catch (e) { allModels = []; console.error(e); }
+}
+
+async function refreshStats() {
+  try {
+    const s = await parseJson(await fetch("/api/curate/stats"));
+    el("ds-count").textContent = s.count;
+    if (s.hf_repo && !el("repo").value) el("repo").value = s.hf_repo;
+  } catch (e) { /* ignore */ }
+}
+
+// ── Flow ──
+function buildPage(html, css, js) {
+  const safeJs = (js || "").replace(/<\/script>/gi, "<\\/script>");
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0"><style>${css||""}</style></head>
+<body>${html||""}${js ? `<script>${safeJs}<\/script>` : ""}</body></html>`;
+}
+
+function setOverlay(html, cls = "") {
+  const o = el("overlay");
+  o.className = "overlay " + cls;
+  o.innerHTML = html;
+  o.hidden = false;
+  el("frame").hidden = true;
+}
+function hideOverlay() { el("overlay").hidden = true; el("frame").hidden = false; }
+
+function setActions(a, r) {
+  canApprove = a; canReject = r;
+  el("approve").disabled = !a;
+  el("reject").disabled = !r;
+}
+
+function schedulePoll() {
+  if (pollTimer) return;
+  pollTimer = setTimeout(() => { pollTimer = null; loadSession(); }, 1200);
+}
+function stopPoll() { if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; } }
+
+async function start() {
+  if (!mix.length) { alert("Add at least one model to the mix."); return; }
+  const count = Math.max(1, Math.min(parseInt(el("count").value, 10) || 10, 200));
+  const parallel = Math.max(1, Math.min(parseInt(el("parallel").value, 10) || 3, 8));
+  busy = true; el("start").disabled = true; setActions(false, false); stopPoll();
+  setOverlay(`<div class="spinner"></div><div>Starting…</div>`, "loading");
+  try {
+    const v = await parseJson(await fetch("/api/curate/start", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ models: mix, count, parallel }),
+    }));
+    if (v.error) throw new Error(v.error);
+    renderSession(v);
+  } catch (e) {
+    setOverlay(`<div class="big">Couldn't start</div><div class="err">${escHtml(e.message)}</div>`);
+  } finally {
+    busy = false; el("start").disabled = false;
+  }
+}
+
+async function loadSession() {
+  try { renderSession(await parseJson(await fetch("/api/curate/session"))); }
+  catch (e) { /* ignore — transient */ }
+}
+
+function renderSession(v) {
+  stopPoll();
+  if (typeof v.dataset_count === "number") el("ds-count").textContent = v.dataset_count;
+
+  if (!v.active) {
+    setActions(false, false);
+    el("progress").textContent = "";
+    el("cur-prompt").textContent = "";
+    setOverlay(`<div class="big">Pick a model, set a count, and hit Queue &amp; Start.</div>
+      <div>Auto-generated briefs → one model designs each → you approve or reject.</div>`);
+    return;
+  }
+
+  if (v.total === 0) {
+    // Session started, briefs still being written by the prompt model.
+    setActions(false, false);
+    el("progress").textContent = `queueing ${v.target} prompts…`;
+    el("cur-prompt").textContent = "";
+    setOverlay(`<div class="spinner"></div><div>Writing briefs…</div>
+      <div style="opacity:.6">designs appear as prompts land</div>`, "loading");
+    schedulePoll();
+    return;
+  }
+
+  const queueHint = v.queuing ? ` · +${Math.max(v.target - v.total, 0)} queueing` : "";
+  el("progress").textContent =
+    `${Math.min(v.idx + 1, v.total)} / ${v.total} · ${v.approved} approved · ${v.ready_ahead} ready${queueHint}`;
+
+  if (v.done) {
+    setActions(false, false);
+    el("cur-prompt").textContent = "";
+    el("cur-model").textContent = "";
+    el("trunc").hidden = true;
+    setOverlay(`<div class="big">Queue complete ✓</div>
+      <div>${v.approved} approved this round · ${escHtml(el("ds-count").textContent)} in dataset.</div>
+      <div style="opacity:.6">Queue more above, or push to HuggingFace.</div>`);
+    return;
+  }
+
+  const cur = v.current;
+  el("cur-prompt").textContent = cur?.prompt || "";
+  el("cur-model").textContent = cur?.model || "";
+  el("trunc").hidden = true;
+
+  if (!cur || cur.status === "pending" || cur.status === "todo") {
+    setActions(false, false);
+    setOverlay(`<div class="spinner"></div><div>${escHtml(cur?.model || "")}</div><div style="opacity:.6">designing…</div>`, "loading");
+    schedulePoll();
+    return;
+  }
+  if (cur.status === "error") {
+    setActions(false, true);  // can still skip past a failed gen
+    setOverlay(`<div class="big">Generation failed</div><div class="err">${escHtml(cur.error)}</div>
+      <button id="skip" class="primary">Skip →</button>`);
+    el("skip").addEventListener("click", reject);
+    return;
+  }
+  // done
+  el("frame").srcdoc = buildPage(cur.html, cur.css, cur.js);
+  el("trunc").hidden = !cur.truncated;
+  hideOverlay();
+  setActions(true, true);
+}
+
+async function approve() {
+  if (busy || !canApprove) return;
+  busy = true; setActions(false, false);
+  try {
+    const v = await parseJson(await fetch("/api/curate/approve", { method: "POST" }));
+    if (v.error) throw new Error(v.error);
+    renderSession(v);
+  } catch (e) {
+    alert("Save failed: " + e.message);
+    setActions(true, true);
+  } finally { busy = false; }
+}
+
+async function reject() {
+  if (busy || !canReject) return;
+  busy = true; setActions(false, false);
+  try {
+    const v = await parseJson(await fetch("/api/curate/reject", { method: "POST" }));
+    if (v.error) throw new Error(v.error);
+    renderSession(v);
+  } catch (e) {
+    alert("Skip failed: " + e.message);
+    loadSession();
+  } finally { busy = false; }
+}
+
+async function upload() {
+  const repo = el("repo").value.trim();
+  if (!repo) { alert("Enter a HuggingFace repo (owner/name)."); return; }
+  const btn = el("upload"); const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = "Uploading…";
+  try {
+    const data = await parseJson(await fetch("/api/curate/upload", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ repo }),
+    }));
+    if (data.error) throw new Error(data.error);
+    btn.textContent = "Uploaded ✓";
+    if (confirm(`Pushed ${data.count} rows to ${repo}.\n\nOpen the dataset page?`)) window.open(data.url, "_blank");
+  } catch (e) {
+    alert("Upload failed: " + e.message);
+  } finally {
+    btn.disabled = false;
+    setTimeout(() => { btn.textContent = orig; }, 2500);
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  initPicker();
+  el("start").addEventListener("click", start);
+  el("approve").addEventListener("click", approve);
+  el("reject").addEventListener("click", reject);
+  el("download").addEventListener("click", () => { window.location = "/dataset.jsonl"; });
+  el("upload").addEventListener("click", upload);
+
+  document.addEventListener("keydown", (e) => {
+    if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+    if (busy) return;
+    if ((e.key === "a" || e.key === "A") && canApprove) { e.preventDefault(); approve(); }
+    if ((e.key === "r" || e.key === "R") && canReject) { e.preventDefault(); reject(); }
+  });
+
+  loadModels();
+  refreshStats();
+  loadSession();   // resume an in-progress session if one exists
+});
+</script>
+</body>
+</html>
