@@ -320,19 +320,20 @@ button.primary:hover { background: var(--accent); border-color: var(--accent); }
 button:disabled { opacity: 0.45; cursor: not-allowed; }
 
 /* ── Vote bar ────────────────────────────────────────────── */
-.panel-vote { flex-shrink: 0; padding: 8px; border-top: 1px solid var(--border); display: flex; }
+.panel-vote { flex-shrink: 0; padding: 8px; border-top: 1px solid var(--border); display: flex; gap: 6px; }
 .vote-btn {
   flex: 1; height: 34px; padding: 0 14px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 6px;
   color: var(--text);
-  font-size: 12px; font-weight: 600;
+  font-size: 14px; font-weight: 600;
 }
-.vote-btn:hover:not(:disabled) { border-color: var(--win); color: var(--win); }
 .vote-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.vote-btn.is-winner { background: var(--win); border-color: var(--win); color: #04120b; opacity: 1; }
-.vote-btn.is-loser { opacity: 0.4; }
+.vote-up:hover:not(:disabled) { border-color: var(--win); }
+.vote-down:hover:not(:disabled) { border-color: var(--error); }
+.vote-up.active { background: var(--win); border-color: var(--win); opacity: 1; }
+.vote-down.active { background: var(--error); border-color: var(--error); opacity: 1; }
 
 /* ── Blind toggle ────────────────────────────────────────── */
 .header-btn.on {
@@ -401,14 +402,25 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 .field > label { font-size: 12px; font-weight: 600; color: var(--text); }
 .field small { font-size: 11px; color: var(--muted); line-height: 1.5; }
 
-#set-token {
+.field-row { display: flex; align-items: center; justify-content: space-between; }
+.field-row > label { font-size: 12px; font-weight: 600; color: var(--text); }
+
+.link-btn {
+  height: auto; padding: 3px 8px;
+  font-size: 11px; font-weight: 500;
+  background: transparent; border: 1px solid var(--border);
+  border-radius: 5px; color: var(--muted);
+}
+.link-btn:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); background: transparent; }
+
+#set-token, #set-timeout, #set-temp {
   width: 140px;
   padding: 8px 10px;
   background: var(--bg); color: var(--text);
   border: 1px solid var(--border); border-radius: 6px;
   font-size: 13px; font-family: inherit; outline: none;
 }
-#set-token:focus { border-color: var(--accent); }
+#set-token:focus, #set-timeout:focus, #set-temp:focus { border-color: var(--accent); }
 
 .fav-add { position: relative; }
 #fav-drop { top: calc(100% + 4px); }
@@ -485,7 +497,28 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
         <small>Max tokens for the first generation. Truncated designs can still be continued (+2k).</small>
       </div>
       <div class="field">
-        <label>Favorite models</label>
+        <label for="set-timeout">Request timeout (seconds)</label>
+        <input type="number" id="set-timeout" min="10" max="600" step="10">
+        <small>How long to wait for a model's response before giving up (10–600).</small>
+      </div>
+      <div class="field">
+        <label for="set-temp">Temperature</label>
+        <input type="number" id="set-temp" min="0" max="2" step="0.1">
+        <small>Sampling temperature for design generation (0–2). Higher = more varied.</small>
+      </div>
+      <div class="field">
+        <label for="set-promptmodel">Prompt-generation model</label>
+        <small>Model that writes the random design briefs (separate from competitors).</small>
+        <div class="fav-add">
+          <input id="set-promptmodel" class="picker-input" placeholder="Search models…" autocomplete="off" spellcheck="false">
+          <div id="promptmodel-drop" class="picker-drop"></div>
+        </div>
+      </div>
+      <div class="field">
+        <div class="field-row">
+          <label>Favorite models</label>
+          <button id="refresh-models" class="link-btn" type="button">↻ Refresh list</button>
+        </div>
         <small>Used by Blind mode to draw anonymous competitors. Add at least 2.</small>
         <div class="fav-add">
           <input id="fav-search" class="picker-input" placeholder="Search models to add…" autocomplete="off" spellcheck="false">
@@ -536,10 +569,12 @@ const DEFAULT_MODELS = ["~anthropic/claude-opus-latest", "openai/gpt-5.3-codex"]
 
 let allModels = [];
 let panels = [];          // ordered array of panel objects
-let voted = false;
 
 let favorites = [];       // favorite model ids (from settings), for blind mode
-let tokenLimit = 8192;    // initial token limit (from settings), display only
+let tokenLimit = 8192;    // initial token limit (from settings)
+let reqTimeout = 120;     // request timeout in seconds (from settings)
+let temperature = 0.9;    // generation temperature (from settings)
+let promptModel = "~anthropic/claude-sonnet-latest";  // brief-writer (from settings)
 let blind = false;        // blind mode: hide model identities until vote
 
 let arena, promptInput, genBtn, promptBtn, addBtn, blindBtn;
@@ -581,7 +616,8 @@ const PANEL_TEMPLATE = `
     <iframe sandbox="allow-scripts" hidden></iframe>
   </div>
   <div class="panel-vote">
-    <button class="vote-btn" disabled>▲ This one's better</button>
+    <button class="vote-btn vote-up" disabled title="Thumbs up">👍</button>
+    <button class="vote-btn vote-down" disabled title="Thumbs down">👎</button>
   </div>
 `;
 
@@ -610,16 +646,18 @@ function createPanel(modelId) {
     trunc:        root.querySelector(".truncate-bar"),
     continueBtn:  root.querySelector(".continue-btn"),
     frame:        root.querySelector("iframe"),
-    voteBtn:      root.querySelector(".vote-btn"),
+    voteUp:       root.querySelector(".vote-up"),
+    voteDown:     root.querySelector(".vote-down"),
   };
 
-  const p = { els, model: null, raw: "", prompt: "", batch: "", jobId: "", timerHandle: null };
+  const p = { els, model: null, raw: "", prompt: "", batch: "", jobId: "", rating: null, timerHandle: null };
 
   initPicker(p);
   els.remove.addEventListener("click", () => removePanel(p));
   els.continueBtn.addEventListener("click", () => continueGen(p));
   els.retry.addEventListener("click", () => regen(p));
-  els.voteBtn.addEventListener("click", () => vote(p));
+  els.voteUp.addEventListener("click", () => rate(p, "up"));
+  els.voteDown.addEventListener("click", () => rate(p, "down"));
 
   panels.push(p);
   arena.appendChild(root);
@@ -823,63 +861,62 @@ function renderResult(p, { html, css, js }) {
   p.els.frame.srcdoc = buildPage(html, css, js);
 }
 
-// ── Voting (preference pairs) ──────────────────────────────────────────────
+// ── Voting (per-competitor thumbs up/down → preference pairs) ───────────────
 function readyPanels() { return panels.filter(p => p.jobId); }
 
 function resetVotes() {
-  voted = false;
   panels.forEach(p => {
     p.jobId = "";
-    p.els.voteBtn.classList.remove("is-winner", "is-loser");
-    p.els.voteBtn.textContent = "▲ This one's better";
+    p.rating = null;
+    p.els.voteUp.classList.remove("active");
+    p.els.voteDown.classList.remove("active");
   });
   updateVoteButtons();
 }
 
 function updateVoteButtons() {
-  const ready = !voted && readyPanels().length >= 2;
-  panels.forEach(p => { p.els.voteBtn.disabled = !(ready && p.jobId); });
+  panels.forEach(p => {
+    const on = !!p.jobId;
+    p.els.voteUp.disabled = !on;
+    p.els.voteDown.disabled = !on;
+  });
 }
 
-async function vote(winner) {
-  const ready = readyPanels();
-  if (voted || ready.length < 2 || !winner.jobId) return;
-  voted = true;
-  updateVoteButtons();
-  markWinner(winner);
-  if (blind) revealAll();  // unmask the models once a choice is committed
+function paintRating(p) {
+  p.els.voteUp.classList.toggle("active", p.rating === "up");
+  p.els.voteDown.classList.toggle("active", p.rating === "down");
+}
 
-  const sides = {};
-  ready.forEach(p => { sides[sideOf(p)] = { id: p.jobId, model: p.model?.id }; });
-  const payload = { batch: winner.batch, prompt: winner.prompt, winner: sideOf(winner), sides };
+async function rate(p, choice) {
+  if (!p.jobId) return;
+  // Toggle: clicking the active choice clears it.
+  const prev = p.rating;
+  p.rating = (p.rating === choice) ? null : choice;
+  paintRating(p);
+
+  // In blind mode, reveal once every competitor has been judged.
+  if (blind && readyPanels().every(x => x.rating)) revealAll();
 
   try {
     const resp = await fetch("/api/vote", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        batch: p.batch,
+        prompt: p.prompt,
+        side: sideOf(p),
+        rating: p.rating || "none",
+        model: p.model?.id,
+        id: p.jobId,
+      }),
     });
     const data = await parseJson(resp);
     if (!resp.ok || data.error) throw new Error(data.error || `HTTP ${resp.status}`);
   } catch (e) {
-    voted = false;
-    panels.forEach(p => p.els.voteBtn.classList.remove("is-winner", "is-loser"));
-    updateVoteButtons();
+    p.rating = prev;
+    paintRating(p);
     alert("Vote failed: " + e.message);
   }
-}
-
-function markWinner(winner) {
-  readyPanels().forEach(p => {
-    const b = p.els.voteBtn;
-    if (p === winner) {
-      b.classList.add("is-winner"); b.classList.remove("is-loser");
-      b.textContent = "✓ Chosen";
-    } else {
-      b.classList.add("is-loser"); b.classList.remove("is-winner");
-      b.textContent = "▲ This one's better";
-    }
-  });
 }
 
 // ── UI state helpers ───────────────────────────────────────────────────────
@@ -989,6 +1026,9 @@ async function loadSettings() {
     const s = await parseJson(resp);
     favorites = Array.isArray(s.favorites) ? s.favorites : [];
     tokenLimit = s.initial_token_limit ?? 8192;
+    reqTimeout = s.request_timeout ?? 120;
+    temperature = s.temperature ?? 0.9;
+    promptModel = s.prompt_model ?? promptModel;
   } catch (e) {
     console.error("Failed to load settings:", e);
   }
@@ -996,7 +1036,11 @@ async function loadSettings() {
 
 function openSettings() {
   document.getElementById("set-token").value = tokenLimit;
+  document.getElementById("set-timeout").value = reqTimeout;
+  document.getElementById("set-temp").value = temperature;
+  document.getElementById("set-promptmodel").value = promptModel;
   document.getElementById("settings-status").textContent = "";
+  document.getElementById("settings-status").style.color = "var(--win)";
   renderFavList();
   renderFavOptions("");
   document.getElementById("settings-overlay").hidden = false;
@@ -1005,6 +1049,51 @@ function openSettings() {
 function closeSettings() {
   document.getElementById("settings-overlay").hidden = true;
   document.getElementById("fav-drop").classList.remove("open");
+  document.getElementById("promptmodel-drop").classList.remove("open");
+}
+
+function renderPromptModelOptions(query) {
+  const drop = document.getElementById("promptmodel-drop");
+  const q = (query || "").toLowerCase().trim();
+  const filtered = allModels.filter(m =>
+    !q || m.id.toLowerCase().includes(q) || m.name.toLowerCase().includes(q)
+  ).slice(0, 120);
+  if (!filtered.length) {
+    drop.innerHTML = `<div class="picker-empty">No matches</div>`;
+    return;
+  }
+  drop.innerHTML = filtered.map(m =>
+    `<div class="picker-option${m.id === promptModel ? " is-selected" : ""}" data-id="${escHtml(m.id)}" title="${escHtml(m.id)}">${escHtml(m.name)}</div>`
+  ).join("");
+  drop.querySelectorAll(".picker-option").forEach(el => {
+    el.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      promptModel = el.dataset.id;
+      document.getElementById("set-promptmodel").value = promptModel;
+      drop.classList.remove("open");
+    });
+  });
+}
+
+async function refreshModels() {
+  const btn = document.getElementById("refresh-models");
+  const orig = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "Refreshing…";
+  try {
+    const resp = await fetch("/api/models?refresh=1");
+    const data = await parseJson(resp);
+    if (data.error) throw new Error(data.error);
+    allModels = data;
+    renderFavOptions(document.getElementById("fav-search").value);
+    btn.textContent = `↻ ${allModels.length} models`;
+    setTimeout(() => { btn.textContent = orig; }, 2000);
+  } catch (e) {
+    alert("Refresh failed: " + e.message);
+    btn.textContent = orig;
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 function renderFavList() {
@@ -1054,8 +1143,14 @@ function renderFavOptions(query) {
 
 async function saveSettings() {
   const n = parseInt(document.getElementById("set-token").value, 10);
+  const to = parseInt(document.getElementById("set-timeout").value, 10);
+  const tp = parseFloat(document.getElementById("set-temp").value);
+  const pm = document.getElementById("set-promptmodel").value.trim();
   const payload = {
     initial_token_limit: Number.isFinite(n) ? n : tokenLimit,
+    request_timeout: Number.isFinite(to) ? to : reqTimeout,
+    temperature: Number.isFinite(tp) ? tp : temperature,
+    prompt_model: pm || promptModel,
     favorites,
   };
   const status = document.getElementById("settings-status");
@@ -1069,7 +1164,14 @@ async function saveSettings() {
     if (!resp.ok || s.error) throw new Error(s.error || `HTTP ${resp.status}`);
     favorites = s.favorites;
     tokenLimit = s.initial_token_limit;
+    reqTimeout = s.request_timeout;
+    temperature = s.temperature;
+    promptModel = s.prompt_model;
     document.getElementById("set-token").value = tokenLimit;
+    document.getElementById("set-timeout").value = reqTimeout;
+    document.getElementById("set-temp").value = temperature;
+    document.getElementById("set-promptmodel").value = promptModel;
+    status.style.color = "var(--win)";
     status.textContent = "Saved ✓";
     setTimeout(() => { status.textContent = ""; }, 2000);
   } catch (e) {
@@ -1106,6 +1208,17 @@ document.addEventListener("DOMContentLoaded", () => {
   favSearch.addEventListener("focus", () => { renderFavOptions(favSearch.value); favDrop.classList.add("open"); });
   favSearch.addEventListener("input", () => { renderFavOptions(favSearch.value); favDrop.classList.add("open"); });
   favSearch.addEventListener("blur", () => setTimeout(() => favDrop.classList.remove("open"), 160));
+
+  const pmSearch = document.getElementById("set-promptmodel");
+  const pmDrop = document.getElementById("promptmodel-drop");
+  pmSearch.addEventListener("focus", () => { renderPromptModelOptions(pmSearch.value); pmDrop.classList.add("open"); });
+  pmSearch.addEventListener("input", () => { renderPromptModelOptions(pmSearch.value); pmDrop.classList.add("open"); });
+  pmSearch.addEventListener("blur", () => setTimeout(() => {
+    pmDrop.classList.remove("open");
+    pmSearch.value = promptModel;
+  }, 160));
+
+  document.getElementById("refresh-models").addEventListener("click", refreshModels);
 
   // Close any open dropdown when clicking outside its panel.
   document.addEventListener("click", (e) => {

@@ -41,7 +41,13 @@ app = Flask(__name__)
 # --------------------------------------------------------------------------- #
 # settings — persisted to output/settings.json
 # --------------------------------------------------------------------------- #
-DEFAULT_SETTINGS = {"initial_token_limit": 8192, "favorites": []}
+DEFAULT_SETTINGS = {
+    "initial_token_limit": 8192,
+    "request_timeout": 120,   # seconds to wait for an OpenRouter response
+    "temperature": 0.9,       # sampling temperature for design generation
+    "prompt_model": "~anthropic/claude-sonnet-latest",  # model that writes briefs
+    "favorites": [],
+}
 _settings_lock = Lock()
 
 
@@ -123,10 +129,11 @@ _models_lock = Lock()
 MODELS_TTL = 3600
 
 
-def _fetch_models() -> list[dict]:
+def _fetch_models(force: bool = False) -> list[dict]:
     global _models_cache, _models_fetched_at
     with _models_lock:
-        if _models_cache is not None and (time.time() - _models_fetched_at) < MODELS_TTL:
+        fresh = _models_cache is not None and (time.time() - _models_fetched_at) < MODELS_TTL
+        if fresh and not force:
             return _models_cache
         url = f"{_client.base_url}/models"
         req = urllib.request.Request(url, headers=_client._headers())
@@ -172,9 +179,6 @@ Design rules:
 - Make it visually striking: commit to a strong aesthetic with color, type, and layout
 - Use CSS gradients, inline SVG, or Unicode for imagery/icons
 """
-
-# Model used to invent design briefs (separate from the A/B competitors).
-PROMPT_MODEL = "~anthropic/claude-sonnet-latest"
 
 PROMPT_SYSTEM = """\
 You are a creative web design director running a design competition.
@@ -268,8 +272,9 @@ def index():
 
 @app.route("/api/models")
 def api_models():
+    force = request.args.get("refresh") in ("1", "true", "yes")
     try:
-        return jsonify(_fetch_models())
+        return jsonify(_fetch_models(force=force))
     except Exception as e:
         log.exception("models fetch failed")
         return jsonify({"error": str(e)}), 500
@@ -290,6 +295,22 @@ def api_set_settings():
         except (ValueError, TypeError):
             return jsonify({"error": "initial_token_limit must be an integer"}), 400
         cur["initial_token_limit"] = max(256, min(n, 32000))
+    if "request_timeout" in body:
+        try:
+            n = int(body["request_timeout"])
+        except (ValueError, TypeError):
+            return jsonify({"error": "request_timeout must be an integer"}), 400
+        cur["request_timeout"] = max(10, min(n, 600))
+    if "temperature" in body:
+        try:
+            t = float(body["temperature"])
+        except (ValueError, TypeError):
+            return jsonify({"error": "temperature must be a number"}), 400
+        cur["temperature"] = max(0.0, min(t, 2.0))
+    if "prompt_model" in body:
+        pm = str(body["prompt_model"]).strip()
+        if pm:
+            cur["prompt_model"] = pm
     if "favorites" in body:
         if not isinstance(body["favorites"], list):
             return jsonify({"error": "favorites must be a list"}), 400
@@ -302,8 +323,9 @@ def api_set_settings():
                 favs.append(s)
         cur["favorites"] = favs
     saved = _save_settings(cur)
-    log.info("settings saved: token_limit=%s favorites=%d",
-             saved["initial_token_limit"], len(saved["favorites"]))
+    log.info("settings saved: token_limit=%s timeout=%ss temp=%s prompt_model=%s favorites=%d",
+             saved["initial_token_limit"], saved["request_timeout"],
+             saved["temperature"], saved["prompt_model"], len(saved["favorites"]))
     return jsonify(saved)
 
 
@@ -324,11 +346,12 @@ def api_generate_prompt():
         user += (f"\n\nDo NOT reuse the subject, brand, or mood of these recent "
                  f"briefs:\n{avoid}")
 
+    s = _load_settings()
     log.info("generate-prompt seeds: page=%r aesthetic=%r spark=%r", page, aesthetic, spark)
     try:
         resp = _client.chat(
             [system_message(PROMPT_SYSTEM), user_message(user)],
-            model=PROMPT_MODEL,
+            model=s["prompt_model"],
             temperature=1.0,
             max_tokens=200,
         )
@@ -347,6 +370,13 @@ def api_generate_prompt():
 CONTINUE_MAX_TOKENS = 2000
 
 
+def _is_prefill_unsupported(e: OpenRouterError) -> bool:
+    """True if the error is a provider rejecting assistant-message prefill
+    (e.g. newest Claude: 'must end with a user message')."""
+    blob = f"{e} {getattr(e, 'body', '')}".lower()
+    return "prefill" in blob or "must end with a user message" in blob
+
+
 @app.route("/api/generate", methods=["POST"])
 def api_generate():
     body = request.get_json(force=True)
@@ -360,31 +390,49 @@ def api_generate():
     if not prompt:
         return jsonify({"error": "prompt is required"}), 400
 
-    messages = [system_message(DESIGN_SYSTEM), user_message(prompt)]
-    if partial:
-        # Prefill: end on the assistant's partial text so the model continues it.
-        messages.append({"role": "assistant", "content": partial})
-        max_tokens = CONTINUE_MAX_TOKENS
-        mode = "continue"
-    else:
-        max_tokens = _load_settings()["initial_token_limit"]
-        mode = "generate"
+    s = _load_settings()
+    temp = float(s["temperature"])
+    base = [system_message(DESIGN_SYSTEM), user_message(prompt)]
 
-    log.info("%s [%s] prompt=%r%s", mode, model, prompt[:80],
-             f" (+{len(partial)}b partial)" if partial else "")
+    log.info("%s [%s] prompt=%r%s", "continue" if partial else "generate", model,
+             prompt[:80], f" (+{len(partial)}b partial)" if partial else "")
     t0 = time.time()
+    # Per-request client so the configured timeout applies without mutating the
+    # shared client under threads.
+    client = OpenRouter(timeout=float(s["request_timeout"]))
     try:
-        resp = _client.chat(messages, model=model, max_tokens=max_tokens,
-                            temperature=0.9)
+        if partial:
+            mode = "continue"
+            try:
+                # Prefill: end on the assistant's partial so the model extends it.
+                resp = client.chat(base + [{"role": "assistant", "content": partial}],
+                                   model=model, max_tokens=CONTINUE_MAX_TOKENS,
+                                   temperature=temp)
+                raw = partial + resp.text
+            except OpenRouterError as e:
+                if not _is_prefill_unsupported(e):
+                    raise
+                # Provider rejects prefill (e.g. newest Claude) — regenerate the
+                # whole design with a bigger budget instead of extending in place.
+                mode = "continue-regen"
+                budget = min(32000, len(partial) // 4 + 4000)
+                log.info("continue [%s]: prefill unsupported, regenerating @ %d tokens",
+                         model, budget)
+                resp = client.chat(base, model=model, max_tokens=budget, temperature=temp)
+                raw = resp.text
+        else:
+            mode = "generate"
+            resp = client.chat(base, model=model,
+                               max_tokens=s["initial_token_limit"], temperature=temp)
+            raw = resp.text
     except OpenRouterError as e:
-        log.error("%s [%s] API error: %s", mode, model, e)
+        log.error("generate [%s] API error: %s", model, e)
         return jsonify({"error": str(e)}), 502
     except Exception as e:
-        log.exception("%s [%s] crashed", mode, model)
+        log.exception("generate [%s] crashed", model)
         return jsonify({"error": f"server error: {e}"}), 500
 
     dt = round(time.time() - t0, 1)
-    raw = partial + resp.text
     truncated = resp.finish_reason == "length"
     usage = resp.usage or {}
     log.debug("%s [%s] %ss finish=%s tokens=%s resp_chars=%d",
@@ -458,23 +506,27 @@ def api_jobs():
 
 @app.route("/api/vote", methods=["POST"])
 def api_vote():
-    """Record a blind preference: which side's design is better. This is the
-    arena's preference-pair signal (chosen vs rejected) for ORPO/DPO."""
+    """Record a per-competitor rating (thumbs up/down). Each up beats each down
+    within a battle — the arena's preference signal (chosen vs rejected) for
+    ORPO/DPO. One record per rating event; latest per (batch, side) wins."""
     body = request.get_json(force=True)
-    winner = (body.get("winner") or "").strip()
-    sides = body.get("sides") or {}
-    if not winner or winner not in sides:
-        return jsonify({"error": "winner must be one of the competing sides"}), 400
+    rating = (body.get("rating") or "").strip()
+    side = (body.get("side") or "").strip()
+    if rating not in ("up", "down", "none"):
+        return jsonify({"error": "rating must be 'up', 'down', or 'none'"}), 400
     record = {
         "ts": time.time(),
         "iso": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "batch": body.get("batch"),
         "prompt": body.get("prompt"),
-        "winner": winner,
-        "sides": sides,  # {a:{id,model}, b:{id,model}, …}
+        "side": side,
+        "rating": rating,
+        "model": body.get("model"),
+        "id": body.get("id"),
     }
     _append_vote(record)
-    log.info("vote batch=%s winner=%s", record["batch"], winner)
+    log.info("vote batch=%s side=%s rating=%s model=%s",
+             record["batch"], side, rating, record["model"])
     return jsonify({"ok": True})
 
 
